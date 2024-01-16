@@ -24,7 +24,6 @@ knitr:
 Display machine information for reproducibility:
 
 ```{r}
-#| eval: false
 sessionInfo()
 ```
 
@@ -32,41 +31,43 @@ sessionInfo()
 
 **No handwritten homework reports are accepted for this course.** We work with Git and GitHub. Efficient and abundant use of Git, e.g., frequent and well-documented commits, is an important criterion for grading your homework.
 
-1.  Apply for the [Student Developer Pack](https://education.github.com/pack) at GitHub using your UCLA email. You'll get GitHub Pro account for free (unlimited public and private repositories).
-**Done**
+1.  Apply for the [Student Developer Pack](https://education.github.com/pack) at GitHub using your UCLA email. You'll get GitHub Pro account for free (unlimited public and private repositories). **Done**
 
-2.  Create a **private** repository `biostat-203b-2024-winter` and add `Hua-Zhou` and TA team (`Tomoki-Okuno` for Lec 1; `jonathanhori` and `jasenzhang1` for Lec 80) as your collaborators with write permission.
-**Done**
+2.  Create a **private** repository `biostat-203b-2024-winter` and add `Hua-Zhou` and TA team (`Tomoki-Okuno` for Lec 1; `jonathanhori` and `jasenzhang1` for Lec 80) as your collaborators with write permission. **Done**
 
-3.  Top directories of the repository should be `hw1`, `hw2`, ... Maintain two branches `main` and `develop`. The `develop` branch will be your main playground, the place where you develop solution (code) to homework problems and write up report. The `main` branch will be your presentation area. Submit your homework files (Quarto file `qmd`, `html` file converted by Quarto, all code and extra data sets to reproduce results) in the `main` branch.
-**Done**
+3.  Top directories of the repository should be `hw1`, `hw2`, ... Maintain two branches `main` and `develop`. The `develop` branch will be your main playground, the place where you develop solution (code) to homework problems and write up report. The `main` branch will be your presentation area. Submit your homework files (Quarto file `qmd`, `html` file converted by Quarto, all code and extra data sets to reproduce results) in the `main` branch. **Done**
 
-4.  After each homework due date, course reader and instructor will check out your `main` branch for grading. Tag each of your homework submissions with tag names `hw1`, `hw2`, ... Tagging time will be used as your submission time. That means if you tag your `hw1` submission after deadline, penalty points will be deducted for late submission.
-**Done**
+4.  After each homework due date, course reader and instructor will check out your `main` branch for grading. Tag each of your homework submissions with tag names `hw1`, `hw2`, ... Tagging time will be used as your submission time. That means if you tag your `hw1` submission after deadline, penalty points will be deducted for late submission. **Done**
 
-5.  After this course, you can make this repository public and use it to demonstrate your skill sets on job market.
-**Got it**
+5.  After this course, you can make this repository public and use it to demonstrate your skill sets on job market. **Got it**
 
 ## Q2. Data ethics training
 
 This exercise (and later in this course) uses the [MIMIC-IV data v2.2](https://physionet.org/content/mimiciv/2.2/), a freely accessible critical care database developed by the MIT Lab for Computational Physiology. Follow the instructions at <https://mimic.mit.edu/docs/gettingstarted/> to (1) complete the CITI `Data or Specimens Only Research` course and (2) obtain the PhysioNet credential for using the MIMIC-IV data. Display the verification links to your completion report and completion certificate here. **You must complete Q2 before working on the remaining questions.** (Hint: The CITI training takes a few hours and the PhysioNet credentialing takes a couple days; do not leave it to the last minute.)
 
-**Answer:** I completed the CITI training on Jan 11. The verification links to my completion report and completion certificate are <https://www.citiprogram.org/verify/?ka985caa2-8c39-45d0-ba2f-5d275b4da4fa-60470351> and <https://www.citiprogram.org/verify/?we960ff22-0e8e-4ae0-9fb7-a92dcea17bff-60470351> respectively.
+**Answer:**
+
+(1) I completed the CITI training on Jan 11. The verification links to my completion report and completion certificate are <https://www.citiprogram.org/verify/?ka985caa2-8c39-45d0-ba2f-5d275b4da4fa-60470351> and <https://www.citiprogram.org/verify/?we960ff22-0e8e-4ae0-9fb7-a92dcea17bff-60470351> respectively.
+
+(2) I have obtained the PhysioNet credential for using the MIMIC-IV data.
 
 ## Q3. Linux Shell Commands
 
 1.  Make the MIMIC v2.2 data available at location `~/mimic`.
 
-```{bash}
-#| eval: false
-ls -l ~/mimic/
-```
-
 Refer to the documentation <https://physionet.org/content/mimiciv/2.2/> for details of data files. Please, do **not** put these data files into Git; they are big. Do **not** copy them into your directory. Do **not** decompress the gz data files. These create unnecessary big files and are not big-data-friendly practices. Read from the data folder `~/mimic` directly in following exercises.
 
 Use Bash commands to answer following questions.
 
+**Answer:** I have downloaded the MIMIC v2.2 data at location `~/mimic` without decompressing the gz data files or copying them into my directory. The output of `ls -l ~/mimic/` is as follows:
+
+```{bash}
+ls -l ~/mimic/
+```
+
 2.  Display the contents in the folders `hosp` and `icu` using Bash command `ls -l`. Why are these data files distributed as `.csv.gz` files instead of `.csv` (comma separated values) files? Read the page <https://mimic.mit.edu/docs/iv/> to understand what's in each folder.
+
+**Answer:** These data files are distributed as `.csv.gz` files instead of `.csv` files because they are compressed using gzip and use less disk space.
 
 ```{bash}
 ls -l ~/mimic/hosp/
@@ -75,20 +76,22 @@ ls -l ~/mimic/icu/
 
 3.  Briefly describe what Bash commands `zcat`, `zless`, `zmore`, and `zgrep` do.
 
+**Answer:** The `zcat`, `zless`, `zmore`, and `zgrep` commands work similarly to `cat`, `less`, `more`, and `grep`, but are designed to handle compressed files (usually gzip-compressed) without decompressing them.
+
 4.  (Looping in Bash) What's the output of the following bash script?
 
 ```{bash}
-#| eval: false
 for datafile in ~/mimic/hosp/{a,l,pa}*.gz
 do
   ls -l $datafile
 done
 ```
 
+**Answer:** The output is a list of the `.gz` files in the `~/mimic/hosp` directory that start with `a`, `l`, or `pa`.
+
 Display the number of lines in each data file using a similar loop. (Hint: combine linux commands `zcat <` and `wc -l`.)
 
 ```{bash}
-#| eval: false
 for datafile in ~/mimic/hosp/{a,l,pa}*.gz
 do
   echo "Number of lines in $datafile:"
@@ -98,7 +101,37 @@ done
 
 5.  Display the first few lines of `admissions.csv.gz`. How many rows are in this data file? How many unique patients (identified by `subject_id`) are in this data file? Do they match the number of patients listed in the `patients.csv.gz` file? (Hint: combine Linux commands `zcat <`, `head`/`tail`, `awk`, `sort`, `uniq`, `wc`, and so on.)
 
-6.  What are the possible values taken by each of the variable `admission_type`, `admission_location`, `insurance`, and `ethnicity`? Also report the count for each unique value of these variables. (Hint: combine Linux commands `zcat`, `head`/`tail`, `awk`, `uniq -c`, `wc`, and so on; skip the header line.)
+```{bash}
+# Display the first few lines of admissions.csv.gz
+zcat < ~/mimic/hosp/admissions.csv.gz | head -5
+```
+
+```{bash}
+# How many rows are in this data file?
+echo "Number of rows in admissions.csv.gz:"
+zcat < ~/mimic/hosp/admissions.csv.gz | tail -n +2 | wc -l
+```
+
+```{bash}
+# How many unique patients (identified by subject_id) are in this data file?
+zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{print $3}' | sort | uniq | wc -l
+```
+
+```{bash}
+# Do they match the number of patients listed in the patients.csv.gz file?
+zcat < ~/mimic/hosp/patients.csv.gz | tail -n +2 | awk -F ',' '{print $1}' | sort | wc -l
+```
+
+**Answer:** The number of rows (ignore the 1st line) in this data file is 431231. The number of unique patients (identified by subject_id) in this data file is 431232 and does not match the number of patients listed in the patients.csv.gz file, which is 299713.
+
+6.  What are the possible values taken by each of the variable `admission_type`, `admission_location`, `insurance`, and `race``? Also report the count for each unique value of these variables. (Hint: combine Linux commands `zcat`, `head`/`tail`, `awk`, `uniq -c`, `wc`, and so on; skip the header line.)
+
+```{bash}
+#| eval: false
+# What are the possible values taken by each of the variable admission_type?
+echo "Possible values taken by admission_type:"
+zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{print $9}' | sort | uniq
+```
 
 7.  *To compress, or not to compress. That's the question.* Let's focus on the big data file `labevents.csv.gz`. Compare compressed gz file size to the uncompressed file size. Compare the run times of `zcat < ~/mimic/labevents.csv.gz | wc -l` versus `wc -l labevents.csv`. Discuss the trade off between storage and speed for big data files. (Hint: `gzip -dk < FILENAME.gz > ./FILENAME`. Remember to delete the large `labevents.csv` file after the exercise.)
 
@@ -115,11 +148,12 @@ Explain what `wget -nc` does. Do **not** put this text file `pg42671.txt` in Git
 
 ```{bash}
 #| eval: false
-wget -nc http://www.gutenberg.org/cache/epub/42671/pg42671.txt
+# wget -nc http://www.gutenberg.org/cache/epub/42671/pg42671.txt
 for char in Elizabeth Jane Lydia Darcy
 do
   echo $char:
-  # some bash commands here
+  cat pg42671.txt | grep -o $char | wc -l
+  cat pg42671.txt | grep -o -i $char | wc -l # case insensitive
 done
 ```
 
@@ -150,6 +184,7 @@ Using `chmod` to make the file executable by the owner, and run
 
 ```{bash}
 #| eval: false
+chmod 700 ./middle.sh
 ./middle.sh pg42671.txt 20 5
 ```
 
