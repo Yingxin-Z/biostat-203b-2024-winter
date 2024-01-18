@@ -108,13 +108,12 @@ zcat < ~/mimic/hosp/admissions.csv.gz | head -5
 
 ```{bash}
 # How many rows are in this data file?
-echo "Number of rows in admissions.csv.gz:"
 zcat < ~/mimic/hosp/admissions.csv.gz | tail -n +2 | wc -l
 ```
 
 ```{bash}
 # How many unique patients (identified by subject_id) are in this data file?
-zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{print $3}' | sort | uniq | wc -l
+zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{print $1}' | sort | uniq | wc -l
 ```
 
 ```{bash}
@@ -122,7 +121,7 @@ zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{print $3}' | sort | uniq | wc 
 zcat < ~/mimic/hosp/patients.csv.gz | tail -n +2 | awk -F ',' '{print $1}' | sort | wc -l
 ```
 
-**Answer:** The number of rows (ignore the 1st line) in this data file is 431231. The number of unique patients (identified by subject_id) in this data file is 431232 and does not match the number of patients listed in the patients.csv.gz file, which is 299713.
+**Answer:** The number of rows (ignore the 1st line) in this data file is 431231. The number of unique patients (identified by subject_id) in this data file is 180734 and does not match the number of patients listed in the patients.csv.gz file, which is 299712.
 
 6.  What are the possible values taken by each of the variable `admission_type`, `admission_location`, `insurance`, and `race``? Also report the count for each unique value of these variables. (Hint: combine Linux commands `zcat`, `head`/`tail`, `awk`, `uniq -c`, `wc`, and so on; skip the header line.)
 
@@ -133,7 +132,7 @@ echo "Possible values taken by admission_type:"
 zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{print $9}' | sort | uniq
 ```
 
-7.  *To compress, or not to compress. That's the question.* Let's focus on the big data file `labevents.csv.gz`. Compare compressed gz file size to the uncompressed file size. Compare the run times of `zcat < ~/mimic/labevents.csv.gz | wc -l` versus `wc -l labevents.csv`. Discuss the trade off between storage and speed for big data files. (Hint: `gzip -dk < FILENAME.gz > ./FILENAME`. Remember to delete the large `labevents.csv` file after the exercise.)
+7.  *To compress, or not to compress. That's the question.* Let's focus on the big data file `labevents.csv.gz`. Compare compressed gz file size to the uncompressed file size. Compare the run times of `zcat < ~/mimic/hosp/labevents.csv.gz | wc -l` versus `wc -l labevents.csv`. Discuss the trade off between storage and speed for big data files. (Hint: `gzip -dk < FILENAME.gz > ./FILENAME`. Remember to delete the large `labevents.csv` file after the exercise.)
 
 ## Q4. Who's popular in Price and Prejudice
 
@@ -193,6 +192,44 @@ Explain the output. Explain the meaning of `"$1"`, `"$2"`, and `"$3"` in this sh
 ## Q5. More fun with Linux
 
 Try following commands in Bash and interpret the results: `cal`, `cal 2024`, `cal 9 1752` (anything unusual?), `date`, `hostname`, `arch`, `uname -a`, `uptime`, `who am i`, `who`, `w`, `id`, `last | head`, `echo {con,pre}{sent,fer}{s,ed}`, `time sleep 5`, `history | tail`.
+
+**Answer:** 
+
+`cal` command displays a calendar of the current month. `cal 2024` displays a calendar of the year 2024. `cal 9 1752` displays a calendar of the month September in the year 1752. The calendar of September 1752 is unusual because the Gregorian calendar was adopted in September 1752, which resulted in the loss of 11 days. `date` command displays the current date and time. 
+
+`hostname` command displays the name of the current host system. `arch` command displays the machine hardware name. `uname -a` command displays all system information. `uptime` command displays the current time, how long the system has been running, how many users are currently logged on, and the system load averages for the past 1, 5, and 15 minutes. 
+
+`who am i` command displays the username of the current user. `who` command displays the list of all users currently logged on. `w` command displays the list of all users currently logged on and what they are doing. `id` command displays the user and group IDs of the current user. 
+
+`last | head` command displays the list of last logged in users. `echo {con,pre}{sent,fer}{s,ed}` command displays the words `consents`, `confer`, `consented`, `conferred`, `presents`, `prefer`, `presented`, and `preferred`. `time sleep 5` command displays the time it takes to run the command `sleep 5`. `history | tail` command displays the last 10 commands in the history.
+
+```{bash}
+cal
+cal 2024
+cal 9 1752
+date
+```
+
+```{bash}
+hostname
+arch
+uname -a
+uptime
+```
+
+```{bash}
+who am i
+who
+w
+id
+```
+
+```{bash}
+last | head
+echo {con,pre}{sent,fer}{s,ed}
+time sleep 5
+history | tail
+```
 
 ## Q6. Book
 
