@@ -31,15 +31,25 @@ sessionInfo()
 
 **No handwritten homework reports are accepted for this course.** We work with Git and GitHub. Efficient and abundant use of Git, e.g., frequent and well-documented commits, is an important criterion for grading your homework.
 
-1.  Apply for the [Student Developer Pack](https://education.github.com/pack) at GitHub using your UCLA email. You'll get GitHub Pro account for free (unlimited public and private repositories). **Done**
+1.  Apply for the [Student Developer Pack](https://education.github.com/pack) at GitHub using your UCLA email. You'll get GitHub Pro account for free (unlimited public and private repositories). 
 
-2.  Create a **private** repository `biostat-203b-2024-winter` and add `Hua-Zhou` and TA team (`Tomoki-Okuno` for Lec 1; `jonathanhori` and `jasenzhang1` for Lec 80) as your collaborators with write permission. **Done**
+**Done**
 
-3.  Top directories of the repository should be `hw1`, `hw2`, ... Maintain two branches `main` and `develop`. The `develop` branch will be your main playground, the place where you develop solution (code) to homework problems and write up report. The `main` branch will be your presentation area. Submit your homework files (Quarto file `qmd`, `html` file converted by Quarto, all code and extra data sets to reproduce results) in the `main` branch. **Done**
+2.  Create a **private** repository `biostat-203b-2024-winter` and add `Hua-Zhou` and TA team (`Tomoki-Okuno` for Lec 1; `jonathanhori` and `jasenzhang1` for Lec 80) as your collaborators with write permission. 
 
-4.  After each homework due date, course reader and instructor will check out your `main` branch for grading. Tag each of your homework submissions with tag names `hw1`, `hw2`, ... Tagging time will be used as your submission time. That means if you tag your `hw1` submission after deadline, penalty points will be deducted for late submission. **Done**
+**Done**
 
-5.  After this course, you can make this repository public and use it to demonstrate your skill sets on job market. **Got it**
+3.  Top directories of the repository should be `hw1`, `hw2`, ... Maintain two branches `main` and `develop`. The `develop` branch will be your main playground, the place where you develop solution (code) to homework problems and write up report. The `main` branch will be your presentation area. Submit your homework files (Quarto file `qmd`, `html` file converted by Quarto, all code and extra data sets to reproduce results) in the `main` branch. 
+
+**Done**
+
+4.  After each homework due date, course reader and instructor will check out your `main` branch for grading. Tag each of your homework submissions with tag names `hw1`, `hw2`, ... Tagging time will be used as your submission time. That means if you tag your `hw1` submission after deadline, penalty points will be deducted for late submission. 
+
+**Done**
+
+5.  After this course, you can make this repository public and use it to demonstrate your skill sets on job market. 
+
+**Got it**
 
 ## Q2. Data ethics training
 
@@ -47,7 +57,7 @@ This exercise (and later in this course) uses the [MIMIC-IV data v2.2](https://p
 
 **Answer:**
 
-(1) I completed the CITI training on Jan 11. The verification links to my completion report and completion certificate are <https://www.citiprogram.org/verify/?ka985caa2-8c39-45d0-ba2f-5d275b4da4fa-60470351> and <https://www.citiprogram.org/verify/?we960ff22-0e8e-4ae0-9fb7-a92dcea17bff-60470351> respectively.
+(1) I have completed the CITI training on Jan 11. The verification links to my completion report and completion certificate are <https://www.citiprogram.org/verify/?ka985caa2-8c39-45d0-ba2f-5d275b4da4fa-60470351> and <https://www.citiprogram.org/verify/?we960ff22-0e8e-4ae0-9fb7-a92dcea17bff-60470351> respectively.
 
 (2) I have obtained the PhysioNet credential for using the MIMIC-IV data.
 
@@ -67,7 +77,13 @@ ls -l ~/mimic/
 
 2.  Display the contents in the folders `hosp` and `icu` using Bash command `ls -l`. Why are these data files distributed as `.csv.gz` files instead of `.csv` (comma separated values) files? Read the page <https://mimic.mit.edu/docs/iv/> to understand what's in each folder.
 
-**Answer:** These data files are distributed as `.csv.gz` files instead of `.csv` files because they are compressed using gzip and use less disk space.
+**Answer:** 
+
+(1) These data files are distributed as `.csv.gz` files instead of `.csv` files because they are compressed using gzip compression, which is a software application used for file compression and decompression. Compressed files are smaller than uncompressed files, so they take up less disk space and can be transferred to other machines more quickly.
+
+(2) The page <https://mimic.mit.edu/docs/iv/> explains that the `hosp` folder contains hospital admission data, while the `icu` folder contains ICU stay data.
+
+(3) The contents in the folders `hosp` and `icu` are as follows:
 
 ```{bash}
 ls -l ~/mimic/hosp/
@@ -87,9 +103,11 @@ do
 done
 ```
 
-**Answer:** The output is a list of the `.gz` files in the `~/mimic/hosp` directory that start with `a`, `l`, or `pa`.
+**Answer:** The output is a list of long-format `.gz` files starting with `a`, `l` or `pa` in the "~/mimic/hosp" directory.
 
 Display the number of lines in each data file using a similar loop. (Hint: combine linux commands `zcat <` and `wc -l`.)
+
+**Answer:** The number of lines in each data file is as follows:
 
 ```{bash}
 for datafile in ~/mimic/hosp/{a,l,pa}*.gz
@@ -125,29 +143,79 @@ zcat < ~/mimic/hosp/patients.csv.gz | tail -n +2 | awk -F ',' '{print $1}' | sor
 
 6.  What are the possible values taken by each of the variable `admission_type`, `admission_location`, `insurance`, and `race``? Also report the count for each unique value of these variables. (Hint: combine Linux commands `zcat`, `head`/`tail`, `awk`, `uniq -c`, `wc`, and so on; skip the header line.)
 
+**Answer:** The possible values taken by each of the variable `admission_type`, `admission_location`, `insurance`, and `race` and their counts are as follows:
+
 ```{bash}
-#| eval: false
-# What are the possible values taken by each of the variable admission_type?
 echo "Possible values taken by admission_type:"
-zcat < ~/mimic/hosp/admissions.csv.gz | awk -F, '{print $9}' | sort | uniq
+zcat < ~/mimic/hosp/admissions.csv.gz | tail -n +2 | awk -F, '{print $6}' | sort | uniq -c
+```
+
+```{bash}
+echo "Possible values taken by admission_location:"
+zcat < ~/mimic/hosp/admissions.csv.gz | tail -n +2 | awk -F, '{print $8}' | sort | uniq -c
+```
+
+```{bash}
+echo "Possible values taken by insurance:"
+zcat < ~/mimic/hosp/admissions.csv.gz | tail -n +2 | awk -F, '{print $10}' | sort | uniq -c
+```
+
+```{bash}
+echo "Possible values taken by race:"
+zcat < ~/mimic/hosp/admissions.csv.gz | tail -n +2 | awk -F, '{print $13}' | sort | uniq -c
 ```
 
 7.  *To compress, or not to compress. That's the question.* Let's focus on the big data file `labevents.csv.gz`. Compare compressed gz file size to the uncompressed file size. Compare the run times of `zcat < ~/mimic/hosp/labevents.csv.gz | wc -l` versus `wc -l labevents.csv`. Discuss the trade off between storage and speed for big data files. (Hint: `gzip -dk < FILENAME.gz > ./FILENAME`. Remember to delete the large `labevents.csv` file after the exercise.)
 
+```{bash}
+#| eval: false
+# decompress the gz file
+gzip -dk < ~/mimic/hosp/labevents.csv.gz > ./labevents.csv
+```
+
+```{bash}
+# Compare the file sizes
+# gz file size
+echo "gz file size:"
+ls -l ~/mimic/hosp/labevents.csv.gz
+# uncompressed file size
+echo "uncompressed file size:"
+ls -l ./labevents.csv
+```
+
+```{bash}
+# Compare the run times
+echo "run time of gz file:"
+time zcat < ~/mimic/hosp/labevents.csv.gz | wc -l
+```
+
+```{bash}
+echo "run time of uncompressed file:"
+time wc -l ./labevents.csv
+```
+
+**Answer:** The gz file size is 1939088924, while the uncompressed file size is 13730083993. The run time of gz file is 18.6s, while the run time of uncompressed file is 6.2s. The gz file is much smaller than the uncompressed file, but it takes longer to run the gz file than the uncompressed file. Therefore, there is a trade off between storage and speed for big data files.
+
 ## Q4. Who's popular in Price and Prejudice
 
 1.  You and your friend just have finished reading *Pride and Prejudice* by Jane Austen. Among the four main characters in the book, Elizabeth, Jane, Lydia, and Darcy, your friend thinks that Darcy was the most mentioned. You, however, are certain it was Elizabeth. Obtain the full text of the novel from <http://www.gutenberg.org/cache/epub/42671/pg42671.txt> and save to your local folder.
+
+**Answer:** I have downloaded the full text of the novel and saved it to my local folder.
 
 ```{bash}
 #| eval: false
 wget -nc http://www.gutenberg.org/cache/epub/42671/pg42671.txt
 ```
 
-Explain what `wget -nc` does. Do **not** put this text file `pg42671.txt` in Git. Complete the following loop to tabulate the number of times each of the four characters is mentioned using Linux commands.
+Explain what `wget -nc` does. Do **not** put this text file `pg42671.txt` in Git. 
+
+**Answer:** The `wget -nc` command downloads the file `pg42671.txt` from the website to the current directory. The `-nc` option means that the file will not be downloaded if it already exists locally.
+
+Complete the following loop to tabulate the number of times each of the four characters is mentioned using Linux commands.
+
+**Answer:** The number of times each of the four characters is mentioned is as follows. Here if we consider the case insensitive, then Lydia and Darcy is one more time mentioned than the original case. However, Elizabeth is the most mentioned in both cases.
 
 ```{bash}
-#| eval: false
-# wget -nc http://www.gutenberg.org/cache/epub/42671/pg42671.txt
 for char in Elizabeth Jane Lydia Darcy
 do
   echo $char:
@@ -157,6 +225,8 @@ done
 ```
 
 2.  What's the difference between the following two commands?
+
+**Answer:** The first command overwrites the file `test1.txt` with the string `hello, world`, while the second command appends the string `hello, world` to the file `test2.txt`.
 
 ```{bash}
 #| eval: false
@@ -172,6 +242,8 @@ echo 'hello, world' >> test2.txt
 
 3.  Using your favorite text editor (e.g., `vi`), type the following and save the file as `middle.sh`:
 
+**Answer:** Here I used `vi` to type the following, saved the file as `middle.sh` and put the file into Git.
+
 ```{bash eval=FALSE}
 #!/bin/sh
 # Select lines from the middle of a file.
@@ -182,12 +254,19 @@ head -n "$2" "$1" | tail -n "$3"
 Using `chmod` to make the file executable by the owner, and run
 
 ```{bash}
-#| eval: false
 chmod 700 ./middle.sh
 ./middle.sh pg42671.txt 20 5
 ```
 
 Explain the output. Explain the meaning of `"$1"`, `"$2"`, and `"$3"` in this shell script. Why do we need the first line of the shell script?
+
+**Answer:** 
+
+(1) The output is the 5 lines starting from line 16 to line 20 of the file `pg42671.txt`.
+
+(2) `"$1"`, `"$2"`, and `"$3"` are the first, second, and third arguments passed to the shell script, respectively. In this case, `"$1"` is the file name `pg42671.txt`, `"$2"` is the end line 20, and `"$3"` is the number of lines 5. `./middle.sh pg42671.txt 20 5` is equivalent to `head -n 20 pg42671.txt | tail -n 5`.
+
+(3) We need the first line of the shell script `#!/bin/sh` because it tells the shell which interpreter to use to execute the rest of the script.
 
 ## Q5. More fun with Linux
 
@@ -195,13 +274,7 @@ Try following commands in Bash and interpret the results: `cal`, `cal 2024`, `ca
 
 **Answer:** 
 
-`cal` command displays a calendar of the current month. `cal 2024` displays a calendar of the year 2024. `cal 9 1752` displays a calendar of the month September in the year 1752. The calendar of September 1752 is unusual because the Gregorian calendar was adopted in September 1752, which resulted in the loss of 11 days. `date` command displays the current date and time. 
-
-`hostname` command displays the name of the current host system. `arch` command displays the machine hardware name. `uname -a` command displays all system information. `uptime` command displays the current time, how long the system has been running, how many users are currently logged on, and the system load averages for the past 1, 5, and 15 minutes. 
-
-`who am i` command displays the username of the current user. `who` command displays the list of all users currently logged on. `w` command displays the list of all users currently logged on and what they are doing. `id` command displays the user and group IDs of the current user. 
-
-`last | head` command displays the list of last logged in users. `echo {con,pre}{sent,fer}{s,ed}` command displays the words `consents`, `confer`, `consented`, `conferred`, `presents`, `prefer`, `presented`, and `preferred`. `time sleep 5` command displays the time it takes to run the command `sleep 5`. `history | tail` command displays the last 10 commands in the history.
+(1)
 
 ```{bash}
 cal
@@ -210,12 +283,20 @@ cal 9 1752
 date
 ```
 
+`cal` command displays a calendar of the current month. `cal 2024` displays a calendar of the year 2024. `cal 9 1752` displays a calendar of the month September in the year 1752. The calendar of September 1752 is unusual because the Gregorian calendar was adopted in September 1752, which resulted in the loss of 11 days. `date` command displays the current date and time. 
+
+(2)
+
 ```{bash}
 hostname
 arch
 uname -a
 uptime
 ```
+
+`hostname` command displays the name of the current host system. `arch` command displays the machine hardware name. `uname -a` command displays all system information. `uptime` command displays the current time, how long the system has been running, how many users are currently logged on, and the system load averages for the past 1, 5, and 15 minutes. 
+
+(3)
 
 ```{bash}
 who am i
@@ -224,12 +305,18 @@ w
 id
 ```
 
+`who am i` command displays the username of the current user. `who` command displays the list of all users currently logged on. `w` command displays the list of all users currently logged on and what they are doing. `id` command displays the user and group IDs of the current user. 
+
+(4)
+
 ```{bash}
 last | head
 echo {con,pre}{sent,fer}{s,ed}
 time sleep 5
 history | tail
 ```
+
+`last | head` command displays the list of last logged in users. `echo {con,pre}{sent,fer}{s,ed}` command displays the words `consents`, `confer`, `consented`, `conferred`, `presents`, `prefer`, `presented`, and `preferred`. `time sleep 5` command displays the time it takes to run the command `sleep 5`. `history | tail` command displays the last 10 commands in the history.
 
 ## Q6. Book
 
