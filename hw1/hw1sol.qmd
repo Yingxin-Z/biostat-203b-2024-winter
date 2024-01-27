@@ -204,7 +204,7 @@ Explain what `wget -nc` does. Do **not** put this text file `pg42671.txt` in Git
 
 Complete the following loop to tabulate the number of times each of the four characters is mentioned using Linux commands.
 
-**Answer:** The number of times each of the four characters is mentioned is as follows. Here if we consider the case insensitive, then Lydia and Darcy is one more time mentioned than the original case. However, Elizabeth is the most mentioned in both cases.
+**Answer:** The number of times each of the four characters is mentioned is as follows. The first line is case sensitive and the second line is case insensitive. Here if we consider case-insensitive, Lydia and Darcy are mentioned once more than in the original case. But in both cases, Elizabeth is mentioned the most, reaching 634 times.
 
 ```{bash}
 for char in Elizabeth Jane Lydia Darcy

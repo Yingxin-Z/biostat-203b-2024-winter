@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Yingxin Zhang, UID: 006140202">
-<meta name="dcterms.date" content="2024-01-20">
+<meta name="dcterms.date" content="2024-01-26">
 
 <title>Biostat 203B Homework 1</title>
 <style>
@@ -3110,7 +3110,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 20, 2024</p>
+      <p class="date">January 26, 2024</p>
     </div>
   </div>
   
@@ -3428,9 +3428,9 @@ uncompressed file size:
 <pre><code>run time of gz file:
  118171368
 
-real    0m18.685s
-user    0m22.634s
-sys 0m1.677s</code></pre>
+real    0m23.712s
+user    0m28.821s
+sys 0m2.020s</code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
@@ -3440,9 +3440,9 @@ sys 0m1.677s</code></pre>
 <pre><code>run time of uncompressed file:
  118171368 ./labevents.csv
 
-real    0m6.487s
-user    0m4.481s
-sys 0m1.503s</code></pre>
+real    0m7.975s
+user    0m5.800s
+sys 0m1.616s</code></pre>
 </div>
 </div>
 </section>
@@ -3458,7 +3458,7 @@ sys 0m1.503s</code></pre>
 <p>Explain what <code>wget -nc</code> does. Do <strong>not</strong> put this text file <code>pg42671.txt</code> in Git.</p>
 <p><strong>Answer:</strong> The <code>wget -nc</code> command downloads the file <code>pg42671.txt</code> from the website to the current directory. The <code>-nc</code> option means that the file will not be downloaded if it already exists locally.</p>
 <p>Complete the following loop to tabulate the number of times each of the four characters is mentioned using Linux commands.</p>
-<p><strong>Answer:</strong> The number of times each of the four characters is mentioned is as follows. Here if we consider the case insensitive, then Lydia and Darcy is one more time mentioned than the original case. However, Elizabeth is the most mentioned in both cases.</p>
+<p><strong>Answer:</strong> The number of times each of the four characters is mentioned is as follows. The first line is case sensitive and the second line is case insensitive. Here if we consider case-insensitive, Lydia and Darcy are mentioned once more than in the original case. But in both cases, Elizabeth is mentioned the most, reaching 634 times.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb35"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> char <span class="kw">in</span> Elizabeth Jane Lydia Darcy</span>
 <span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="cf">do</span></span>
@@ -3536,8 +3536,8 @@ Language: English</code></pre>
 Su Mo Tu We Th Fr Sa  
     1  2  3  4  5  6  
  7  8  9 10 11 12 13  
-14 15 16 17 18 19 _2_0  
-21 22 23 24 25 26 27  
+14 15 16 17 18 19 20  
+21 22 23 24 25 _2_6 27  
 28 29 30 31           
                       </code></pre>
 </div>
@@ -3550,8 +3550,8 @@ Su Mo Tu We Th Fr Sa
 Su Mo Tu We Th Fr Sa  Su Mo Tu We Th Fr Sa  Su Mo Tu We Th Fr Sa  
     1  2  3  4  5  6               1  2  3                  1  2  
  7  8  9 10 11 12 13   4  5  6  7  8  9 10   3  4  5  6  7  8  9  
-14 15 16 17 18 19 _2_0  11 12 13 14 15 16 17  10 11 12 13 14 15 16  
-21 22 23 24 25 26 27  18 19 20 21 22 23 24  17 18 19 20 21 22 23  
+14 15 16 17 18 19 20  11 12 13 14 15 16 17  10 11 12 13 14 15 16  
+21 22 23 24 25 _2_6 27  18 19 20 21 22 23 24  17 18 19 20 21 22 23  
 28 29 30 31           25 26 27 28 29        24 25 26 27 28 29 30  
                                             31                    
 
@@ -3599,7 +3599,7 @@ Su Mo Tu We Th Fr Sa
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb48"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="fu">date</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Sat Jan 20 00:28:59 PST 2024</code></pre>
+<pre><code>Fri Jan 26 16:06:56 PST 2024</code></pre>
 </div>
 </div>
 <ul>
@@ -3608,7 +3608,7 @@ Su Mo Tu We Th Fr Sa
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb50"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hostname</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>yingxindeMBP.lan</code></pre>
+<pre><code>yingxindeMacBook-Pro.local</code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
@@ -3620,13 +3620,13 @@ Su Mo Tu We Th Fr Sa
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb54"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="fu">uname</span> <span class="at">-a</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Darwin yingxindeMBP.lan 21.6.0 Darwin Kernel Version 21.6.0: Thu Nov  9 00:42:05 PST 2023; root:xnu-8020.240.18.705.10~1/RELEASE_ARM64_T6000 arm64</code></pre>
+<pre><code>Darwin yingxindeMacBook-Pro.local 21.6.0 Darwin Kernel Version 21.6.0: Thu Nov  9 00:42:05 PST 2023; root:xnu-8020.240.18.705.10~1/RELEASE_ARM64_T6000 arm64</code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb56"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="fu">uptime</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code> 0:28  up 27 days, 1 hr, 1 user, load averages: 4.95 5.23 5.12</code></pre>
+<pre><code>16:06  up 33 days, 16:38, 1 user, load averages: 4.45 4.41 4.33</code></pre>
 </div>
 </div>
 <ul>
@@ -3635,7 +3635,7 @@ Su Mo Tu We Th Fr Sa
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb58"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a><span class="fu">who</span> am i</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>yingxin  tty??    Jan 20 00:28 </code></pre>
+<pre><code>yingxin  tty??    Jan 26 16:06 </code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
@@ -3647,9 +3647,9 @@ Su Mo Tu We Th Fr Sa
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb62"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a><span class="fu">w</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code> 0:28  up 27 days, 1 hr, 1 user, load averages: 4.95 5.23 5.12
+<pre><code>16:06  up 33 days, 16:38, 1 user, load averages: 4.45 4.41 4.33
 USER     TTY      FROM              LOGIN@  IDLE WHAT
-yingxin  console  -                23Dec23 27days -</code></pre>
+yingxin  console  -                23Dec23 33days -</code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
@@ -3664,15 +3664,16 @@ yingxin  console  -                23Dec23 27days -</code></pre>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb66"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="fu">last</span> <span class="kw">|</span> <span class="fu">head</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>yingxin   ttys001                   Thu Jan 18 18:48 - 18:48  (00:00)
+<pre><code>yingxin   ttys006                   Thu Jan 25 00:31 - 00:31  (00:00)
+yingxin   ttys000                   Tue Jan 23 15:55 - 15:55  (00:00)
+yingxin   ttys000                   Tue Jan 23 15:43 - 15:43  (00:00)
+yingxin   ttys000                   Tue Jan 23 15:10 - 15:10  (00:00)
+yingxin   ttys001                   Thu Jan 18 18:48 - 18:48  (00:00)
 yingxin   ttys001                   Thu Jan 18 16:26 - 16:26  (00:00)
 yingxin   ttys002                   Thu Jan 18 16:25 - 16:25  (00:00)
 yingxin   ttys001                   Thu Jan 18 16:00 - 16:00  (00:00)
 yingxin   ttys001                   Thu Jan 18 15:33 - 15:33  (00:00)
-yingxin   ttys000                   Wed Jan 17 22:24 - 22:24  (00:00)
-yingxin   ttys000                   Tue Jan 16 18:51 - 18:51  (00:00)
-yingxin   ttys000                   Tue Jan 16 16:34 - 16:34  (00:00)
-yingxin   ttys000                   Tue Jan 16 14:50 - 14:50  (00:00)</code></pre>
+yingxin   ttys000                   Wed Jan 17 22:24 - 22:24  (00:00)</code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
@@ -3685,7 +3686,7 @@ yingxin   ttys000                   Tue Jan 16 14:50 - 14:50  (00:00)</code></pr
 <div class="sourceCode cell-code" id="cb70"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="bu">time</span> sleep 5</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-real    0m5.003s
+real    0m5.008s
 user    0m0.000s
 sys 0m0.001s</code></pre>
 </div>
