@@ -1,7 +1,7 @@
 ---
 title: "Biostat 203B Homework 2"
 subtitle: Due Feb 9 @ 11:59PM
-author: "Yingxin Zhang, UID"
+author: "Yingxin Zhang, UID: 006140202"
 format:
   html:
     theme: cosmo
@@ -159,7 +159,32 @@ Our first strategy to handle this big data file is to make a subset of the `labe
 
 In later exercises, we will only be interested in the following lab items: creatinine (50912), potassium (50971), sodium (50983), chloride (50902), bicarbonate (50882), hematocrit (51221), white blood cell count (51301), and glucose (50931) and the following columns: `subject_id`, `itemid`, `charttime`, `valuenum`. Write a Bash command to extract these columns and rows from `labevents.csv.gz` and save the result to a new file `labevents_filtered.csv.gz` in the current working directory. (Hint: use `zcat <` to pipe the output of `labevents.csv.gz` to `awk` and then to `gzip` to compress the output. To save render time, put `#| eval: false` at the beginning of this code chunk.)
 
+```{bash}
+#display the first 10 lines of labevents.csv.gz
+zcat < ~/mimic/hosp/labevents.csv.gz | head -10
+```
+
+```{bash}
+#| eval: false
+zcat < ~/mimic/hosp/labevents.csv.gz | awk -F, '($5 == 50912 || $5 == 50971 || $5 == 50983 || $5 == 50902 || $5 == 50882 || $5 == 51221 || $5 == 51301 || $5 == 50931) {print $2","$5","$7","$10}' | gzip > labevents_filtered.csv.gz
+```
+
 Display the first 10 lines of the new file `labevents_filtered.csv.gz`. How many lines are in this new file? How long does it take `read_csv` to ingest `labevents_filtered.csv.gz`?
+
+```{bash}
+# display the first 10 lines of labevents_filtered.csv.gz
+zcat < labevents_filtered.csv.gz | head -10
+```
+
+```{bash}
+# the number of lines in labevents_filtered.csv.gz
+zcat < labevents_filtered.csv.gz | wc -l
+```
+
+```{r}
+system.time(read_csv("labevents_filtered.csv.gz"))
+```
+**Answer**: The number of lines in `labevents_filtered.csv.gz` is 24855908. It takes about 23s for `read_csv` to ingest `labevents_filtered.csv.gz`.
 
 ### Q2.4 Ingest `labevents.csv` by Apache Arrow
 
@@ -169,9 +194,30 @@ Display the first 10 lines of the new file `labevents_filtered.csv.gz`. How many
 
 Our second strategy is to use [Apache Arrow](https://arrow.apache.org/) for larger-than-memory data analytics. Unfortunately Arrow does not work with gz files directly. First decompress `labevents.csv.gz` to `labevents.csv` and put it in the current working directory. To save render time, put `#| eval: false` at the beginning of this code chunk.
 
+```{bash}
+#| eval: false
+zcat < ~/mimic/hosp/labevents.csv.gz > labevents.csv
+```
+
 Then use [`arrow::open_dataset`](https://arrow.apache.org/docs/r/reference/open_dataset.html) to ingest `labevents.csv`, select columns, and filter `itemid` as in Q2.3. How long does the ingest+select+filter process take? Display the number of rows and the first 10 rows of the result tibble, and make sure they match those in Q2.3. (Hint: use `dplyr` verbs for selecting columns and filtering rows.)
 
+```{r}
+system.time(arrow::open_dataset("labevents.csv", format = 'csv') |> 
+              select(subject_id, itemid, charttime, valuenum) |> 
+              filter(itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)))
+```
+
+```{r}
+arrow::open_dataset("labevents.csv", format = 'csv') |> 
+  select(subject_id, itemid, charttime, valuenum) |> 
+  filter(itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) |> 
+  as_tibble() |> 
+  head(10)
+```
+
 Write a few sentences to explain what is Apache Arrow. Imagine you want to explain it to a layman in an elevator. 
+
+**Answer**: The ingest+select+filter process takes about 0.015s. Apache Arrow is a cross-language development platform for in-memory data that specifies a standardized language-independent columnar memory format for flat and hierarchical data, organized for efficient analytic operations on modern hardware. It is designed to accelerate big data processing and analytics by providing a standard in-memory representation of data that works across different systems.
 
 ### Q2.5 Compress `labevents.csv` to Parquet format and ingest/select/filter
 
@@ -181,7 +227,41 @@ Write a few sentences to explain what is Apache Arrow. Imagine you want to expla
 
 Re-write the csv file `labevents.csv` in the binary Parquet format (Hint: [`arrow::write_dataset`](https://arrow.apache.org/docs/r/reference/write_dataset.html).) How large is the Parquet file(s)? How long does the ingest+select+filter process of the Parquet file(s) take? Display the number of rows and the first 10 rows of the result tibble and make sure they match those in Q2.3. (Hint: use `dplyr` verbs for selecting columns and filtering rows.)
 
+```{r}
+# Re-write the csv file `labevents.csv` in the binary Parquet format
+arrow::write_dataset(arrow::open_dataset("labevents.csv", format = 'csv') |> 
+                       select(subject_id, itemid, charttime, valuenum) |> 
+                       filter(itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)), "labevents.parquet")
+```
+
+```{bash}
+# How large is the Parquet file(s)?
+ls -l labevents.parquet
+```
+
+```{r}
+# How long does the ingest+select+filter process of the Parquet file(s) take?
+system.time(arrow::open_dataset("labevents.parquet") |> 
+              as_tibble())
+```
+
+```{r}
+# Display the number of rows of the result tibble
+arrow::open_dataset("labevents.parquet") |> 
+  as_tibble() |> 
+  nrow()
+```
+
+```{r}
+# Display the first 10 rows of the result tibble
+arrow::open_dataset("labevents.parquet") |> 
+  as_tibble() |> 
+  head(10)
+```
+
 Write a few sentences to explain what is the Parquet format. Imagine you want to explain it to a layman in an elevator.
+
+**Answer**: The Parquet format is a columnar storage file format that is optimized for reading and writing large datasets. It is designed to be efficient for both storage and processing, and is widely used in the big data ecosystem.
 
 ### Q2.6 DuckDB
 
@@ -207,3 +287,18 @@ In later exercises, we are interested in the vitals for ICU patients: heart rate
 
 Document the steps and show code. Display the number of rows and the first 10 rows of the result tibble.
 
+```{bash}
+#| eval: false
+# Retrieve a subset of `chartevents.csv.gz` only containing these items
+zcat < ~/mimic/icu/chartevents.csv.gz | awk -F, '($7 == 220045 || $7 == 220181 || $7 == 220179 || $7 == 223761 || $7 == 220210)' | gzip > chartevents_filtered.csv.gz
+```
+
+```{bash}
+# Display the number of rows of the result tibble
+zcat < chartevents_filtered.csv.gz | wc -l
+```
+
+```{bash}
+# Display the first 10 rows of the result tibble
+zcat < ./chartevents_filtered.csv.gz | head -10
+```
