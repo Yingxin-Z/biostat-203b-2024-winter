@@ -16,20 +16,26 @@ execute:
 ---
 
 Display machine information for reproducibility:
+
 ```{r}
 sessionInfo()
 ```
 
 Load necessary libraries (you can add more as needed).
+
 ```{r setup}
 library(arrow)
 library(memuse)
 library(pryr)
 library(R.utils)
 library(tidyverse)
+library(dplyr)
+library(readr)
+library(ggplot2)
 ```
 
 Display your machine memory.
+
 ```{r}
 memuse::Sys.meminfo()
 ```
@@ -44,10 +50,128 @@ Visualizing a patient's encounters in a health care system is a common task in c
 
 A patient's ADT history records the time of admission, discharge, and transfer in the hospital. This figure shows the ADT history of the patient with `subject_id` 10001217 in the MIMIC-IV data. The x-axis is the calendar time, and the y-axis is the type of event (ADT, lab, procedure). The color of the line segment represents the care unit. The size of the line segment represents whether the care unit is an ICU/CCU. The crosses represent lab events, and the shape of the dots represents the type of procedure. The title of the figure shows the patient's demographic information and the subtitle shows top 3 diagnoses.
 
-![](10001217_adt.png)
+![](10001217_adt.png) 
+
 Do a similar visualization for the patient with `subject_id` 10013310 using ggplot.
 
 Hint: We need to pull information from data files `patients.csv.gz`, `admissions.csv.gz`, `transfers.csv.gz`, `labevents.csv.gz`, `procedures_icd.csv.gz`, `diagnoses_icd.csv.gz`, `d_icd_procedures.csv.gz`, and `d_icd_diagnoses.csv.gz`. For the big file `labevents.csv.gz`, use the Parquet format you generated in Homework 2. For reproducibility, make the Parquet folder `labevents_pq` available at the current working directory `hw3`, for example, by a symbolic link. Make your code reproducible.
+
+**Answer:** Here I copy the Parquet format generated in Homework 2 to the current working directory `hw3` and renamed it as `labevents_pq`. Then I import the necessary data files and generate the visualization for the patient with `subject_id` 10013310.
+
+```{bash}
+# display the first 2 lines of each file
+zcat < ~/mimic/hosp/patients.csv.gz | head -2
+zcat < ~/mimic/hosp/admissions.csv.gz | head -2
+zcat < ~/mimic/hosp/transfers.csv.gz | head -2
+zcat < ~/mimic/hosp/labevents.csv.gz | head -2
+zcat < ~/mimic/hosp/procedures_icd.csv.gz | head -2
+zcat < ~/mimic/hosp/diagnoses_icd.csv.gz | head -2
+zcat < ~/mimic/hosp/d_icd_procedures.csv.gz | head -2
+zcat < ~/mimic/hosp/d_icd_diagnoses.csv.gz | head -2
+```
+
+```{r}
+# import data
+patients <- read_csv("~/mimic/hosp/patients.csv.gz")
+admissions <- read_csv("~/mimic/hosp/admissions.csv.gz")
+transfers <- read_csv("~/mimic/hosp/transfers.csv.gz")
+labevents <- arrow::open_dataset("labevents_pq", format = 'parquet') |> 
+  as_tibble()
+procedures_icd <- read_csv("~/mimic/hosp/procedures_icd.csv.gz")
+diagnoses_icd <- read_csv("~/mimic/hosp/diagnoses_icd.csv.gz")
+d_icd_procedures <- read_csv("~/mimic/hosp/d_icd_procedures.csv.gz")
+d_icd_diagnoses <- read_csv("~/mimic/hosp/d_icd_diagnoses.csv.gz")
+```
+
+```{r}
+# filter data for patient 10013310
+patient_id <- 10013310
+patients_10013310 <- patients %>% filter(subject_id == patient_id)
+admissions_10013310 <- admissions %>% filter(subject_id == patient_id)
+transfers_10013310 <- transfers %>% filter(subject_id == patient_id)
+labevents_10013310 <- labevents %>% filter(subject_id == patient_id)
+procedures_icd_10013310 <- procedures_icd %>% filter(subject_id == patient_id)
+diagnoses_icd_10013310 <- diagnoses_icd %>% filter(subject_id == patient_id)
+```
+
+```{r}
+# display the filtered data
+patients_10013310
+admissions_10013310
+transfers_10013310
+```
+
+```{r}
+# add col unit to transfers, if careunit contains "ICU" or "CCU", then unit is "ICU/CCU", otherwise "non-ICU/CCU"
+transfers_10013310 <- transfers_10013310 %>%
+  mutate(unit = ifelse(str_detect(careunit, "ICU|CCU"), 5, 2.5))
+
+# remove missing values in transfers_10013310
+transfers_10013310 <- transfers_10013310 %>% drop_na()
+```
+
+```{r}
+# remove missing values in labevents_10013310
+labevents_10013310 <- labevents_10013310 %>% drop_na()
+```
+
+```{r}
+# merge procedures_icd and d_icd_procedures
+procedures_10013310 <- procedures_icd_10013310 %>%
+  left_join(d_icd_procedures, by = "icd_code")
+
+# change the colname "long_title" to "long_procedures"
+colnames(procedures_10013310)[colnames(procedures_10013310) == "long_title"] <- "Procedure"
+
+procedures_10013310$chartdate <- as.POSIXct(procedures_10013310$chartdate)
+procedures_10013310
+```
+
+```{r}
+# merge diagnoses_icd, transfers and d_icd_diagnoses
+diagnoses_10013310 <- diagnoses_icd_10013310 %>%
+  left_join(d_icd_diagnoses, by = "icd_code")
+
+# change the colname "long_title" to "long_title_diagnoses"
+colnames(diagnoses_10013310)[colnames(diagnoses_10013310) == "long_title"] <- "long_diagnoses"
+
+#pull top 3 diagnoses
+top3_diagnoses <- diagnoses_10013310 %>%
+  count(long_diagnoses, sort = TRUE) %>%
+  slice(1:3) %>%
+  pull(long_diagnoses)
+
+top3_diagnoses
+```
+
+```{r}
+# Draw the ADT history for patient 10013310
+plot <- ggplot() +
+  geom_segment(data = transfers_10013310, aes(x = intime, xend = outtime, 
+    y = 3, yend = 3, color = careunit, size = unit), linetype = "dashed") +
+  geom_point(data = labevents_10013310, aes(x = charttime, y = 2), shape = 3, size = 5) +
+  geom_point(data = procedures_10013310, aes(x = chartdate, y = 1, shape = Procedure), size = 5) +
+  labs(title = "Patient 10013310, F, 70 years old, BLACK/AFRICAN", 
+       subtitle = paste(top3_diagnoses, collapse = "\n")) +
+  xlab("Calendar Time") +
+  theme(axis.title.y = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.grid = element_line(color = "gray", linewidth = 0.5),
+        panel.border = element_rect(color = "black", fill = NA, linewidth = 0.8)) +  
+  theme(axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 15), 
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10)) +
+  scale_y_continuous(breaks = 1:3, labels = c("Procedure", "Lab", "ADT")) +
+  coord_cartesian(ylim = c(1, 3)) +
+  guides(size = FALSE)
+
+ggsave("output_plot.png", plot, width = 12, height = 5)
+```
+
+The visualization for the patient with `subject_id` 10013310 is shown below.
+
+![](output_plot.png)
 
 ### Q1.2 ICU stays
 
@@ -60,21 +184,23 @@ Do a similar visualization for the patient `10013310`.
 ## Q2. ICU stays
 
 `icustays.csv.gz` (<https://mimic.mit.edu/docs/iv/modules/icu/icustays/>) contains data about Intensive Care Units (ICU) stays. The first 10 lines are
+
 ```{bash}
 zcat < ~/mimic/icu/icustays.csv.gz | head
 ```
 
 ### Q2.1 Ingestion
 
-Import `icustays.csv.gz` as a tibble `icustays_tble`. 
+Import `icustays.csv.gz` as a tibble `icustays_tble`.
 
 ### Q2.2 Summary and visualization
 
-How many unique `subject_id`? Can a `subject_id` have multiple ICU stays? Summarize the number of ICU stays per `subject_id` by graphs. 
+How many unique `subject_id`? Can a `subject_id` have multiple ICU stays? Summarize the number of ICU stays per `subject_id` by graphs.
 
 ## Q3. `admissions` data
 
 Information of the patients admitted into hospital is available in `admissions.csv.gz`. See <https://mimic.mit.edu/docs/iv/modules/hosp/admissions/> for details of each field in this file. The first 10 lines are
+
 ```{bash}
 zcat < ~/mimic/hosp/admissions.csv.gz | head
 ```
@@ -87,18 +213,19 @@ Import `admissions.csv.gz` as a tibble `admissions_tble`.
 
 Summarize the following information by graphics and explain any patterns you see.
 
-- number of admissions per patient  
-- admission hour (anything unusual?)  
-- admission minute (anything unusual?)  
-- length of hospital stay (from admission to discharge) (anything unusual?)  
+-   number of admissions per patient\
+-   admission hour (anything unusual?)\
+-   admission minute (anything unusual?)\
+-   length of hospital stay (from admission to discharge) (anything unusual?)
 
-According to the [MIMIC-IV documentation](https://mimic.mit.edu/docs/iv/about/concepts/#date-shifting), 
+According to the [MIMIC-IV documentation](https://mimic.mit.edu/docs/iv/about/concepts/#date-shifting),
 
 > All dates in the database have been shifted to protect patient confidentiality. Dates will be internally consistent for the same patient, but randomly distributed in the future. Dates of birth which occur in the present time are not true dates of birth. Furthermore, dates of birth which occur before the year 1900 occur if the patient is older than 89. In these cases, the patient’s age at their first admission has been fixed to 300.
 
 ## Q4. `patients` data
 
 Patient information is available in `patients.csv.gz`. See <https://mimic.mit.edu/docs/iv/modules/hosp/patients/> for details of each field in this file. The first 10 lines are
+
 ```{bash}
 zcat < ~/mimic/hosp/patients.csv.gz | head
 ```
@@ -114,11 +241,13 @@ Summarize variables `gender` and `anchor_age` by graphics, and explain any patte
 ## Q5. Lab results
 
 `labevents.csv.gz` (<https://mimic.mit.edu/docs/iv/modules/hosp/labevents/>) contains all laboratory measurements for patients. The first 10 lines are
+
 ```{bash}
 zcat < ~/mimic/hosp/labevents.csv.gz | head
 ```
 
-`d_labitems.csv.gz` (<https://mimic.mit.edu/docs/iv/modules/hosp/d_labitems/>) is the dictionary of lab measurements. 
+`d_labitems.csv.gz` (<https://mimic.mit.edu/docs/iv/modules/hosp/d_labitems/>) is the dictionary of lab measurements.
+
 ```{bash}
 zcat < ~/mimic/hosp/d_labitems.csv.gz | head
 ```
@@ -127,22 +256,23 @@ We are interested in the lab measurements of creatinine (50912), potassium (5097
 
 ![](labevents_tble.png)
 
-
 Hint: Use the Parquet format you generated in Homework 2. For reproducibility, make `labevents_pq` folder available at the current working directory `hw3`, for example, by a symbolic link.
 
 ## Q6. Vitals from charted events
 
 `chartevents.csv.gz` (<https://mimic.mit.edu/docs/iv/modules/icu/chartevents/>) contains all the charted data available for a patient. During their ICU stay, the primary repository of a patient’s information is their electronic chart. The `itemid` variable indicates a single measurement type in the database. The `value` variable is the value measured for `itemid`. The first 10 lines of `chartevents.csv.gz` are
+
 ```{bash}
 zcat < ~/mimic/icu/chartevents.csv.gz | head
 ```
 
-`d_items.csv.gz` (<https://mimic.mit.edu/docs/iv/modules/icu/d_items/>) is the dictionary for the `itemid` in `chartevents.csv.gz`. 
+`d_items.csv.gz` (<https://mimic.mit.edu/docs/iv/modules/icu/d_items/>) is the dictionary for the `itemid` in `chartevents.csv.gz`.
+
 ```{bash}
 zcat < ~/mimic/icu/d_items.csv.gz | head
 ```
 
-We are interested in the vitals for ICU patients: heart rate (220045), systolic non-invasive blood pressure (220179), diastolic non-invasive blood pressure (220180), body temperature in Fahrenheit (223761), and respiratory rate (220210). Retrieve a subset of `chartevents.csv.gz` only containing these items for the patients in `icustays_tble`. Further restrict to the first vital measurement within the ICU stay. The final `chartevents_tble` should have one row per ICU stay and columns for each vital measurement. 
+We are interested in the vitals for ICU patients: heart rate (220045), systolic non-invasive blood pressure (220179), diastolic non-invasive blood pressure (220180), body temperature in Fahrenheit (223761), and respiratory rate (220210). Retrieve a subset of `chartevents.csv.gz` only containing these items for the patients in `icustays_tble`. Further restrict to the first vital measurement within the ICU stay. The final `chartevents_tble` should have one row per ICU stay and columns for each vital measurement.
 
 ![](chartevents_tble.png)
 
@@ -150,13 +280,13 @@ Hint: Use the Parquet format you generated in Homework 2. For reproducibility, m
 
 ## Q7. Putting things together
 
-Let us create a tibble `mimic_icu_cohort` for all ICU stays, where rows are all ICU stays of adults (age at `intime` >= 18) and columns contain at least following variables
+Let us create a tibble `mimic_icu_cohort` for all ICU stays, where rows are all ICU stays of adults (age at `intime` \>= 18) and columns contain at least following variables
 
-- all variables in `icustays_tble`  
-- all variables in `admissions_tble`  
-- all variables in `patients_tble`
-- the last lab measurements before the ICU stay in `labevents_tble` 
-- the first vital measurements during the ICU stay in `chartevents_tble`
+-   all variables in `icustays_tble`\
+-   all variables in `admissions_tble`\
+-   all variables in `patients_tble`
+-   the last lab measurements before the ICU stay in `labevents_tble`
+-   the first vital measurements during the ICU stay in `chartevents_tble`
 
 The final `mimic_icu_cohort` should have one row per ICU stay and columns for each variable.
 
@@ -166,11 +296,10 @@ The final `mimic_icu_cohort` should have one row per ICU stay and columns for ea
 
 Summarize the following information about the ICU stay cohort `mimic_icu_cohort` using appropriate numerics or graphs:
 
-- Length of ICU stay `los` vs demographic variables (race, insurance, marital_status, gender, age at intime)
+-   Length of ICU stay `los` vs demographic variables (race, insurance, marital_status, gender, age at intime)
 
-- Length of ICU stay `los` vs the last available lab measurements before ICU stay
+-   Length of ICU stay `los` vs the last available lab measurements before ICU stay
 
-- Length of ICU stay `los` vs the average vital measurements within the first hour of ICU stay
+-   Length of ICU stay `los` vs the average vital measurements within the first hour of ICU stay
 
-- Length of ICU stay `los` vs first ICU unit
-
+-   Length of ICU stay `los` vs first ICU unit
