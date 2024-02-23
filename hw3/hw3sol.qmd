@@ -57,9 +57,7 @@ Do a similar visualization for the patient with `subject_id` 10013310 using ggpl
 
 Hint: We need to pull information from data files `patients.csv.gz`, `admissions.csv.gz`, `transfers.csv.gz`, `labevents.csv.gz`, `procedures_icd.csv.gz`, `diagnoses_icd.csv.gz`, `d_icd_procedures.csv.gz`, and `d_icd_diagnoses.csv.gz`. For the big file `labevents.csv.gz`, use the Parquet format you generated in Homework 2. For reproducibility, make the Parquet folder `labevents_pq` available at the current working directory `hw3`, for example, by a symbolic link. Make your code reproducible.
 
-**Answer:** 
-
-First, I copy the Parquet format generated in Homework 2 to the current working directory `hw3` and renamed it as `labevents_pq`. Then I import the necessary data files and filter the data for patient 10013310.
+**Answer:** Here I use the Parquet format `labevents_pq` generated in Homework 2 and draw the visualization for the patient with `subject_id` 10013310.
 
 ```{r}
 # import data and filter data for patient 10013310
@@ -81,14 +79,12 @@ diagnoses_icd_10013310 <- read_csv("~/mimic/hosp/diagnoses_icd.csv.gz") |>
 d_icd_procedures <- read_csv("~/mimic/hosp/d_icd_procedures.csv.gz")
 d_icd_diagnoses <- read_csv("~/mimic/hosp/d_icd_diagnoses.csv.gz")
 ```
-Then, I read the filtered `patients_10013310` and `admissions_10013310` data and get the patient's information used in the title of the visualization: Patient 10013310 is F, 70 years old, BLACK/AFRICAN.
 
 ```{r}
 # display the filtered data
 patients_10013310
 admissions_10013310
 ```
-Then I add a column `unit` to `transfers_10013310` to indicate whether the care unit is an ICU/CCU. I also remove missing values in `transfers_10013310` and `labevents_10013310`.
 
 ```{r}
 # add col unit to transfers, if careunit contains "ICU" or "CCU", then unit is 10, otherwise 8
@@ -101,8 +97,6 @@ transfers_10013310 <- transfers_10013310 |> drop_na()
 # remove missing values in labevents_10013310
 labevents_10013310 <- labevents_10013310 |> drop_na()
 ```
-
-Then I merge `procedures_icd_10013310` and `d_icd_procedures` and insert a column `Procedure` to `procedures_icd_10013310` to indicate the type of procedure (the content before the first comma in long_title). I also change the format of `chartdate` to `POSIXct`.
 
 ```{r}
 # merge procedures_icd_10013310 and d_icd_procedures
@@ -117,8 +111,6 @@ procedures_10013310$chartdate <- as.POSIXct(procedures_10013310$chartdate)
 
 procedures_10013310
 ```
-
-Then I merge `diagnoses_icd_10013310`, `transfers_10013310` and `d_icd_diagnoses` and pull the top 3 diagnoses. I also draw the ADT history for patient 10013310.
 
 ```{r}
 # merge diagnoses_icd_10013310 and d_icd_diagnoses
@@ -213,7 +205,8 @@ chartevents_d_10013310 <- events_10013310 |>
 
 ```{r}
 # draw the ICU vitals for patient 10013310 and put different vitals in different facets
-plot <- ggplot(chartevents_d_10013310, aes(x = charttime, y = valuenum, color = abbreviation)) +
+plot <- ggplot(chartevents_d_10013310, 
+               aes(x = charttime, y = valuenum, color = abbreviation)) +
   geom_line() +
   geom_point() +
   facet_grid(abbreviation ~ stay_id, scales = "free") +
@@ -222,7 +215,7 @@ plot <- ggplot(chartevents_d_10013310, aes(x = charttime, y = valuenum, color = 
         panel.background = element_rect(fill = "white"),
         panel.grid = element_line(color = "gray", linewidth = 0.5),
         panel.border = element_rect(color = "grey", fill = NA, linewidth = 0.8),
-        strip.text = element_text(size = 10)) +  # Adjust the size of facet titles
+        strip.text = element_text(size = 10)) + 
   scale_color_brewer(palette = "Set1") +
   theme(axis.title.x = element_blank()) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
@@ -344,7 +337,7 @@ admissions_tble |>
   geom_col() +
   labs(title = "Distribution of Admission Hour", 
        x = "Admission Hour", 
-       y = "Frequency") +
+       y = "Count") +
   theme_minimal()
 ```
 
@@ -361,7 +354,7 @@ admissions_tble |>
   geom_col() +
   labs(title = "Distribution of Admission Minute", 
        x = "Admission minute", 
-       y = "Frequency") +
+       y = "Count") +
   theme_minimal()
 ```
 
@@ -372,7 +365,9 @@ admissions_tble |>
 ```{r}
 # length of hospital stay
 admissions_tble |> 
-  mutate(length_of_stay = as.numeric(difftime(dischtime, admittime, units = "days"))) |> 
+  mutate(
+    length_of_stay = as.numeric(difftime(dischtime, admittime, units = "days"))
+  ) |> 
   ggplot(aes(x = length_of_stay)) +
   geom_histogram(binwidth = 1) +
   labs(title = "Distribution of length of hospital stay", 
@@ -597,8 +592,7 @@ The final `mimic_icu_cohort` should have one row per ICU stay and columns for ea
 icustays_adults <- icustays_tble |>
   left_join(admissions_tble, by = c("subject_id", "hadm_id")) |>
   left_join(patients_tble, by = "subject_id") |>
-  mutate(
-    age_intime = anchor_age + as.double(year(intime)) - anchor_year) |>
+  mutate(age_intime = anchor_age + as.double(year(intime)) - anchor_year) |>
   filter(age_intime >= 18) |>
   print(width = Inf)
 ```
@@ -623,7 +617,7 @@ Summarize the following information about the ICU stay cohort `mimic_icu_cohort`
 
 -   Length of ICU stay `los` vs first ICU unit
 
-**Answer:**
+**Answer:** The summary plots of the cohort are shown below.
 
 ```{r}
 # get the summary of the cohort
@@ -635,7 +629,7 @@ summary(mimic_icu_cohort)
 ggplot(data = mimic_icu_cohort) + 
   geom_histogram(mapping = aes(x = los)) +
   labs(title = "Distribution of Length of ICU Stay", 
-       x = "Length of ICU Stay (los)", y = "Frequency") +
+       x = "Length of ICU Stay (los)", y = "Count") +
   theme_minimal()
 ```
 
@@ -646,6 +640,8 @@ mimic_icu_cohort <- mimic_icu_cohort |>
 ```
 
 ### Q8.1 Length of ICU stay `los` vs demographic variables
+
+- From the Length of ICU stay `los` vs demographic variables plots below, we can see that most of the patients are white, have Medicare or Other insurance, are married, male, and have an age at intime between 50 and 90. Among all of the groups of these demographic variables, the majority of patients stay in the ICU for less than 2.5 days.
 
 ```{r}
 # Length of ICU stay `los` vs demographic variables
@@ -686,14 +682,18 @@ mimic_icu_cohort <- mimic_icu_cohort |>
 # plot the bar plot for each group
 ggplot(data = mimic_icu_cohort) + 
   geom_bar(mapping = aes(x = age_group, fill = los_group)) +
-  labs(title = "Distributions of age at intime") +
-  labs(x = "Age at Intime (years)", fill = "Length of ICU Stay (los)") + 
+  labs(title = "Length of ICU Stay vs age at intime") +
+  labs(x = "Age at Intime (years)", 
+       y = "Count",
+       fill = "Length of ICU Stay (los)") + 
   theme_minimal()
 
 max(mimic_icu_cohort$age_intime)
 ```
 
 ### Q8.2 Length of ICU stay `los` vs the last available lab measurements before ICU stay
+
+- From the Length of ICU stay `los` vs the last available lab measurements before ICU stay plots below, we can see that the relationship between the length of ICU stay and the last available lab measurements before ICU stay is not very clear.
 
 ```{r}
 # Length of ICU stay `los` vs the last available lab measurements before ICU stay
@@ -728,6 +728,8 @@ grid.arrange(grobs = plots_lab, nrow = 3,
 
 ### Q8.3 Length of ICU stay `los` vs the first vital measurements within the ICU stay
 
+- From the Length of ICU stay `los` vs the first vital measurements within the ICU stay plots below, we can see that the relationship between the length of ICU stay and the first vital measurements within the ICU stay is also not very clear and it is hard to find a pattern.
+
 ```{r}
 # Length of ICU stay `los` vs the first vital measurements within the ICU stay
 # Visualize the distribution of los for each vital measurement
@@ -760,6 +762,8 @@ grid.arrange(grobs = plots_vital, nrow = 3,
 
 ### Q8.4 Length of ICU stay `los` vs first ICU unit
 
+- From the Length of ICU stay `los` vs first ICU unit plots below, we can see that Neuro ICU has the lowest number of first-ICU-unit patients. The number of patients who stay in the ICU for less than 2.5 days takes up the majority of all first-ICU-unit types.
+
 ```{r}
 # Length of ICU stay `los` vs first ICU unit
 # Visualize the distribution of los for each first ICU unit
@@ -768,7 +772,9 @@ grid.arrange(grobs = plots_vital, nrow = 3,
 ggplot(data = mimic_icu_cohort) + 
   geom_bar(mapping = aes(x = first_careunit, fill = los_group)) +
   labs(title = "Distributions of first ICU unit") +
-  labs(x = "First ICU Unit", fill = "Length of ICU Stay (los)") + 
+  labs(x = "First ICU Unit", 
+       y = "Count",
+       fill = "Length of ICU Stay (los)") + 
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
