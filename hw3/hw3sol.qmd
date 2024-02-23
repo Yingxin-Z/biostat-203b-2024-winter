@@ -91,22 +91,22 @@ admissions_10013310
 Then I add a column `unit` to `transfers_10013310` to indicate whether the care unit is an ICU/CCU. I also remove missing values in `transfers_10013310` and `labevents_10013310`.
 
 ```{r}
-# add col unit to transfers, if careunit contains "ICU" or "CCU", then unit is "ICU/CCU", otherwise "non-ICU/CCU"
+# add col unit to transfers, if careunit contains "ICU" or "CCU", then unit is 10, otherwise 8
 transfers_10013310 <- transfers_10013310 |>
   mutate(unit = ifelse(str_detect(careunit, "ICU|CCU"), 10, 8))
 
 # remove missing values in transfers_10013310
-transfers_10013310 <- transfers_10013310  |> drop_na()
+transfers_10013310 <- transfers_10013310 |> drop_na()
 
 # remove missing values in labevents_10013310
-labevents_10013310 <- labevents_10013310 %>% drop_na()
+labevents_10013310 <- labevents_10013310 |> drop_na()
 ```
 
 Then I merge `procedures_icd_10013310` and `d_icd_procedures` and insert a column `Procedure` to `procedures_icd_10013310` to indicate the type of procedure (the content before the first comma in long_title). I also change the format of `chartdate` to `POSIXct`.
 
 ```{r}
 # merge procedures_icd_10013310 and d_icd_procedures
-procedures_10013310 <- procedures_icd_10013310 %>%
+procedures_10013310 <- procedures_icd_10013310 |>
   left_join(d_icd_procedures, by = "icd_code")
 
 # insert column Procedure = the content before the first comma in long_title, if long_title contains a comma
@@ -122,23 +122,23 @@ Then I merge `diagnoses_icd_10013310`, `transfers_10013310` and `d_icd_diagnoses
 
 ```{r}
 # merge diagnoses_icd_10013310 and d_icd_diagnoses
-diagnoses_10013310 <- diagnoses_icd_10013310 %>%
+diagnoses_10013310 <- diagnoses_icd_10013310 |>
   left_join(d_icd_diagnoses, by = "icd_code")
 
 # change the colname "long_title" to "long_title_diagnoses"
 colnames(diagnoses_10013310)[colnames(diagnoses_10013310) == "long_title"] <- "long_diagnoses"
 
 # pull top 3 diagnoses
-top3_diagnoses <- diagnoses_10013310 %>%
-  count(long_diagnoses, sort = TRUE) %>%
-  slice(1:3) %>%
+top3_diagnoses <- diagnoses_10013310 |>
+  count(long_diagnoses, sort = TRUE) |>
+  slice(1:3) |>
   pull(long_diagnoses)
 
 top3_diagnoses
 ```
 
 ```{r}
-# Draw the ADT history for patient 10013310
+# draw the ADT history for patient 10013310
 plot <- ggplot() +
   geom_segment(data = transfers_10013310, aes(x = intime, xend = outtime, 
     y = 3, yend = 3, color = careunit, size = unit)) +
@@ -224,10 +224,11 @@ plot <- ggplot(chartevents_d_10013310, aes(x = charttime, y = valuenum, color = 
         panel.border = element_rect(color = "grey", fill = NA, linewidth = 0.8),
         strip.text = element_text(size = 10)) +  # Adjust the size of facet titles
   scale_color_brewer(palette = "Set1") +
-  theme(axis.title.x = element_blank()) + 
+  theme(axis.title.x = element_blank()) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   guides(color = FALSE)
 
-ggsave("10013310_icu.png", plot, width = 8, height = 5)
+ggsave("10013310_icu.png", plot, width = 12, height = 6)
 ```
 
 The visualization for the patient with `subject_id` 10013310 is shown below.
@@ -260,24 +261,24 @@ How many unique `subject_id`? Can a `subject_id` have multiple ICU stays? Summar
 
 ```{r}
 # number of unique subject_id
-icustays_tble %>% 
-  distinct(subject_id) %>% 
+icustays_tble |> 
+  distinct(subject_id) |> 
   nrow()
 ```
 
 ```{r}
 # whether a subject_id can have multiple ICU stays
-icustays_tble %>% 
-  count(subject_id) %>% 
-  filter(n > 1) %>% 
+icustays_tble |> 
+  count(subject_id) |> 
+  filter(n > 1) |> 
   nrow()
 ```
 
 ```{r}
 # number of ICU stays per subject_id
-icustays_tble %>% 
-  group_by(subject_id) %>% 
-  summarise(n = n()) %>%
+icustays_tble |> 
+  group_by(subject_id) |> 
+  summarise(n = n()) |>
   ggplot() +
   geom_bar(mapping = aes(x = n)) + 
   labs(title = "Distribution of the Number of ICU Stays per patient", 
@@ -316,11 +317,15 @@ According to the [MIMIC-IV documentation](https://mimic.mit.edu/docs/iv/about/co
 
 > All dates in the database have been shifted to protect patient confidentiality. Dates will be internally consistent for the same patient, but randomly distributed in the future. Dates of birth which occur in the present time are not true dates of birth. Furthermore, dates of birth which occur before the year 1900 occur if the patient is older than 89. In these cases, the patient’s age at their first admission has been fixed to 300.
 
+**Answer:** The distribution of the number of admissions per patient, admission hour, admission minute, and length of hospital stay is summarized by the following graphics.
+
+- number of admissions per patient
+
 ```{r}
 # number of admissions per patient
-admissions_tble %>% 
-  group_by(subject_id) %>%
-  summarise(n = n()) %>%
+admissions_tble |> 
+  group_by(subject_id) |>
+  summarise(n = n()) |>
   ggplot() +
   geom_bar(mapping = aes(x = n)) +
   labs(title = "Distribution of the Number of Admissions per patient", 
@@ -328,11 +333,13 @@ admissions_tble %>%
   theme_minimal()
 ```
 
+-   admission hour (anything unusual?)
+
 ```{r}
 # admission hour
-admissions_tble %>%
-  mutate(admission_hour = hour(admittime)) %>%
-  count(admission_hour) %>%
+admissions_tble |>
+  mutate(admission_hour = hour(admittime)) |>
+  count(admission_hour) |>
   ggplot(aes(x = admission_hour, y = n)) +
   geom_col() +
   labs(title = "Distribution of Admission Hour", 
@@ -341,11 +348,15 @@ admissions_tble %>%
   theme_minimal()
 ```
 
+**Answer:** In the distribution of admission hour, 0 am and 7 am are unusual because the number of admissions at these hours is much higher than other hours near them.
+
+-   admission minute (anything unusual?)
+
 ```{r}
 # admission minute
-admissions_tble %>%
-  mutate(admission_minute = minute(admittime)) %>%
-  count(admission_minute) %>%
+admissions_tble |>
+  mutate(admission_minute = minute(admittime)) |>
+  count(admission_minute) |>
   ggplot(aes(x = admission_minute, y = n)) +
   geom_col() +
   labs(title = "Distribution of Admission Minute", 
@@ -354,16 +365,22 @@ admissions_tble %>%
   theme_minimal()
 ```
 
+**Answer:** In the distribution of admission minute, minute 0, 15, 30, 45 are unusual because the number of admissions at these minute is much higher than other minutes near them.
+
+-   length of hospital stay (from admission to discharge) (anything unusual?)
+
 ```{r}
 # length of hospital stay
 admissions_tble |> 
   mutate(length_of_stay = as.numeric(difftime(dischtime, admittime, units = "days"))) |> 
   ggplot(aes(x = length_of_stay)) +
-  geom_histogram(binwidth = 2) +
+  geom_histogram(binwidth = 1) +
   labs(title = "Distribution of length of hospital stay", 
        x = "Length of hospital stay (days)", y = "Count") +
   theme_minimal()
 ```
+
+**Answer:** The distribution of length of hospital stay is severely right-skewed. The majority of patients stay in the hospital for less than 30 days and most of them stay for less than 10 days. There are also some patients who stay in the hospital for nearly 300 days.
 
 ## Q4. `patients` data
 
@@ -389,16 +406,19 @@ Summarize variables `gender` and `anchor_age` by graphics, and explain any patte
 
 **Answer:** The distribution of `gender` and `anchor_age` is summarized by the following boxplot and barplot.
 
-From the plots, we can see that the distribution of `anchor_age` is similar within each gender group. The median anchor age of women is slightly lower than that of men. The distribution of `anchor_age` is right-skewed, with the majority of patients being between 50 and 80 years old.
+- From the boxplot, we can see that the distribution of `anchor_age` is similar within each gender group. The median anchor age of women is slightly lower than that of men. 
+
+- From the barplot, The distribution of `anchor_age` is right-skewed. In many age levels, the number of men is higher than the number of women. It is worth noting that both the number of women and the number of men are very high at the maximum age of 91, which is unusual.
 
 ```{r}
 # draw the boxplot
 ggplot(data = patients_tble, mapping = aes(x = gender, y = anchor_age)) + 
-  stat_boxplot(geom = "errorbar", width = 0.2) + 
   geom_boxplot() +
   labs(title = "Distributions of anchor age by gender") +
   labs(x = "Gender", y = "Anchor age (years)")
+```
 
+```{r}
 # draw the barplot
 ggplot(data = patients_tble) + 
   geom_bar(mapping = aes(x = anchor_age, fill = gender)) +
@@ -469,8 +489,7 @@ labevents_item <- labevents_icu |>
 ```
 
 ```{r}
-# The final `labevents_tble` should have one row per ICU stay and columns for each lab measurement so we convert the table from long to wide. If multiple values of the same item with the same storetime, use the one with the latest charttime.
-
+# The final `labevents_tble` should have one row per ICU stay and columns for each lab measurement so we convert the table from long to wide. If multiple values of the same item with the same storetime, use the one with the latest charttime. If multiple values of the same item with the same storetime and charttime, use the last valuenum.
 labevents_tble <- labevents_item |>
   group_by(subject_id, stay_id, storetime, label) |> 
   filter(charttime == max(charttime)) |>
@@ -535,7 +554,7 @@ chartevents_icu <- chartevents_filter |>
 
 ```{r}
 # merge chartevents and d_items
-chartevents_item <- chartevents_icu %>%
+chartevents_item <- chartevents_icu |>
   left_join(
     select(d_items, itemid, label), 
     by = "itemid") |>
@@ -543,8 +562,8 @@ chartevents_item <- chartevents_icu %>%
 ```
 
 ```{r}
-# The final `chartevents_tble` should have one row per ICU stay and columns for each vital measurement so we convert the table from long to wide
-chartevents_tble <- chartevents_item %>%
+# The final `chartevents_tble` should have one row per ICU stay and columns for each vital measurement so we convert the table from long to wide. If multiple values of the same item with the same storetime, use the one with the latest charttime. If multiple values of the same item with the same storetime and charttime, use the last valuenum.
+chartevents_tble <- chartevents_item |>
   group_by(subject_id, stay_id, storetime, label) |> 
   filter(charttime == max(charttime)) |>
   ungroup() |>
@@ -574,18 +593,13 @@ The final `mimic_icu_cohort` should have one row per ICU stay and columns for ea
 **Answer:**
 
 ```{r}
-icustays_tble
-admissions_tble
-patients_tble
-```
-```{r}
 # filter icustays_tble for adults
-icustays_adults <- icustays_tble %>%
-  left_join(admissions_tble, by = c("subject_id", "hadm_id")) %>%
-  left_join(patients_tble, by = "subject_id") %>%
+icustays_adults <- icustays_tble |>
+  left_join(admissions_tble, by = c("subject_id", "hadm_id")) |>
+  left_join(patients_tble, by = "subject_id") |>
   mutate(
-    age_intime = anchor_age + as.double(year(intime)) - anchor_year) %>%
-  filter(age_intime >= 18) %>%
+    age_intime = anchor_age + as.double(year(intime)) - anchor_year) |>
+  filter(age_intime >= 18) |>
   print(width = Inf)
 ```
 
@@ -628,8 +642,7 @@ ggplot(data = mimic_icu_cohort) +
 ```{r}
 # devide los into 6 groups
 mimic_icu_cohort <- mimic_icu_cohort |>
-  mutate(los_group = cut(los, breaks = c(0, 1, 2, 3, 4, 115), 
-                         labels = c("0-1", "1-2", "2-3", "3-4", "4-115")))
+  mutate(los_group = cut(los, breaks = c(0, 2.5, 5, 10, 15, 20, 115)))
 ```
 
 ### Q8.1 Length of ICU stay `los` vs demographic variables
@@ -647,10 +660,10 @@ plots_demo <- list()
 # Iterate over each demographic variable
 for (var in demo_vars) {
   p <- ggplot(mimic_icu_cohort) +
-    geom_violin(mapping = aes(x = !!sym(var), y = los)) +
-    labs(x = var, 
-         title = paste("Length of ICU Stay vs ", var)) +
-    theme_minimal()
+    geom_bar(mapping = aes(x = !!sym(var), fill = los_group)) +
+    labs(title = paste("Length of ICU Stay vs ", var)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          axis.title = element_text(size = 8))
   
   # Add the plot to the list
   plots_demo[[var]] <- p
@@ -751,16 +764,6 @@ grid.arrange(grobs = plots_vital, nrow = 3,
 # Length of ICU stay `los` vs first ICU unit
 # Visualize the distribution of los for each first ICU unit
 
-# Create a boxplot for los vs first ICU unit
-ggplot(mimic_icu_cohort, aes(x = first_careunit, y = los)) +
-  geom_violin() +
-  labs(title = "Length of ICU Stay vs First ICU Unit", 
-       x = "First ICU Unit", y = "Length of ICU Stay (los)") +
-  theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-```{r}
 # plot the bar plot for first ICU unit
 ggplot(data = mimic_icu_cohort) + 
   geom_bar(mapping = aes(x = first_careunit, fill = los_group)) +
