@@ -428,3 +428,16 @@ zcat < chartevents_filtered.csv.gz | wc -l
 # Display the first 10 rows of the result tibble
 zcat < ./chartevents_filtered.csv.gz | head -10
 ```
+
+```{bash}
+# uncompressed the file `chartevents.csv.gz` to `chartevents.csv`
+zcat < ~/mimic/icu/chartevents.csv.gz > chartevents.csv
+```
+
+```{r}
+# Re-write the file `chartevents.csv.gz` in the binary Parquet format
+chart_csv <- arrow::open_dataset("chartevents.csv", format = 'csv')
+arrow::write_dataset(chart_csv, "chartevents.parquet")
+```
+
+
