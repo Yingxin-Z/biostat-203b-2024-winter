@@ -179,6 +179,41 @@ Hint: Below is a numerical summary of my tibble after preprocessing:
 
 <iframe width=95% height="500" src="./mimic_icu_cohort_gtsummary.html"></iframe>
 
+```{r}
+# define a function to classify race
+classify_race <- function(race) {
+  ifelse(str_detect(race, "(?i)ASIAN"), "ASIAN",
+    ifelse(str_detect(race, "(?i)BLACK"), "BLACK",
+      ifelse(str_detect(race, "(?i)HISPANIC"), "HISPANIC",
+        ifelse(str_detect(race, "(?i)WHITE"), "WHITE", "Other"))))
+}
+
+mimic_icu_cohort <- mimic_icu_cohort |>
+  mutate(
+    # lump infrequent levels into "Other" level
+    first_careunit = fct_lump(first_careunit, n = 4),
+    last_careunit = fct_lump(last_careunit, n = 4),
+    admission_type = fct_lump(admission_type, n = 4),
+    admission_location = fct_lump(admission_location, n = 4),
+    discharge_location = fct_lump(discharge_location, n = 4), 
+    # collapse the levels of race
+    race = classify_race(race), 
+    # create a new variable los_long
+    los_long = los >= 2
+    ) |>
+  select(-subject_id, -hadm_id, -stay_id, -intime, -outtime, -admittime, 
+         -dischtime, -deathtime, -admit_provider_id, -edregtime, -edouttime, 
+         -anchor_age, -anchor_year, -anchor_year_group) |>
+  # summarize the data using tbl_summary(), stratified by los_long
+  tbl_summary(by = los_long) |>
+  as_gt() |>
+  gtsave("mimic_icu_cohort_summary.html")
+```
+
+The numerical summary of my tibble after preprocessing is as follows:
+
+<iframe width=95% height="500" src="./mimic_icu_cohort_summary.html"></iframe>
+
 ### Q1.9 Save the final tibble
 
 Save the final tibble to an R data file `mimic_icu_cohort.rds` in the `mimiciv_shiny` folder.
@@ -191,6 +226,7 @@ if (!dir.exists("mimiciv_shiny")) {
 mimic_icu_cohort |>
   write_rds("mimiciv_shiny/mimic_icu_cohort.rds", compress = "gz")
 ```
+
 Close database connection and clear workspace.
 ```{r}
 if (exists("con_bq")) {
