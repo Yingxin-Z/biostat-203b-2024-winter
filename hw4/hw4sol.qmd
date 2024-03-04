@@ -102,7 +102,8 @@ labevents_tble <- tbl(con_bq, "labevents") |>
   # only the lab measurements for the patients in icustays_tble
   semi_join(icustays_tble, by = "subject_id") |>
   # only the lab items listed in HW3
-  filter(itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) |>
+  filter(
+    itemid %in% c(50912, 50971, 50983, 50902, 50882, 51221, 51301, 50931)) |>
   left_join(
     select(icustays_tble, subject_id, stay_id, intime), 
     by = "subject_id") |>
@@ -130,27 +131,18 @@ Connect to `chartevents` table and retrieve a subset that only contain subjects 
 ```{r}
 # connect to the chartevents table and retrieve a subset
 chartevents_tble <- tbl(con_bq, "chartevents") |>
-  # only the chart events for the patients in icustays_tble
-  semi_join(icustays_tble, by = "subject_id") |>
-  # only the chart items listed in HW3
   filter(itemid %in% c(220045, 220179, 220180, 223761, 220210)) |>
   left_join(
     select(icustays_tble, subject_id, stay_id, intime, outtime), 
     by = c("subject_id", "stay_id")) |>
-  # only the first chart events during ICU stay
+  filter(charttime >= intime & charttime <= outtime) |>
   group_by(subject_id, stay_id, itemid) |>
-  filter(storetime > intime & storetime < outtime) |>
-  filter(storetime == min(storetime)) |>
+  filter(charttime == min(charttime)) |>
   ungroup() |>
   left_join(
     select(tbl(con_bq, "d_items"), itemid, label), 
     by = "itemid") |>
-  # If multiple values of the same item with the same storetime, use the one with the latest charttime.
-  group_by(subject_id, stay_id, storetime, label) |> 
-  filter(charttime == max(charttime)) |>
-  ungroup() |>
   select(subject_id, stay_id, label, valuenum) |>
-  # pivot chart events to become variables/columns
   pivot_wider(names_from = label, values_from = valuenum) |>
   print(width = Inf)
 ```
@@ -160,7 +152,7 @@ chartevents_tble <- tbl(con_bq, "chartevents") |>
 This step is similar to Q7 of HW3. Using _one_ chain of pipes `|>` to perform following data wrangling steps: (i) start with the `icustays_tble`, (ii) merge in admissions and patients tables, (iii) keep adults only (age at ICU intime >= 18), (iv) merge in the labevents and chartevents tables, (v) `collect` the tibble.
 
 ```{r}
-mimic_icu_cohort <- icustays_tble |>
+mimic_cohort <- icustays_tble |>
   left_join(admissions_tble, by = c("subject_id", "hadm_id")) |>
   left_join(patients_tble, by = "subject_id") |>
   mutate(age_intime = anchor_age + as.double(year(intime)) - anchor_year) |>
@@ -188,7 +180,7 @@ classify_race <- function(race) {
         ifelse(str_detect(race, "(?i)WHITE"), "WHITE", "Other"))))
 }
 
-mimic_icu_cohort <- mimic_icu_cohort |>
+mimic_icu_cohort <- mimic_cohort |>
   mutate(
     # lump infrequent levels into "Other" level
     first_careunit = fct_lump(first_careunit, n = 4),
@@ -200,17 +192,20 @@ mimic_icu_cohort <- mimic_icu_cohort |>
     race = classify_race(race), 
     # create a new variable los_long
     los_long = los >= 2
-    ) |>
+    )
+
+mimic_icu_cohort |>
   select(-subject_id, -hadm_id, -stay_id, -intime, -outtime, -admittime, 
          -dischtime, -deathtime, -admit_provider_id, -edregtime, -edouttime, 
-         -anchor_age, -anchor_year, -anchor_year_group) |>
+         -anchor_age, -anchor_year, -anchor_year_group)  |>
   # summarize the data using tbl_summary(), stratified by los_long
   tbl_summary(by = los_long) |>
   as_gt() |>
-  gtsave("mimic_icu_cohort_summary.html")
+  # save the summary table to mimic_icu_cohort_summary.html
+  gtsave("mimic_icu_cohort_gtsummary.html")
 ```
 
-The numerical summary of my tibble after preprocessing is as follows:
+My tibble after preprocessing is saved in `mimic_icu_cohort` and the numerical summary is saved in `mimic_icu_cohort_gtsummary.html` and displayed above.
 
 <iframe width=95% height="500" src="./mimic_icu_cohort_summary.html"></iframe>
 
@@ -239,3 +234,5 @@ Although it is not a good practice to add big data files to git, for grading pur
 ## Q2. Shiny app
 
 Develop a Shiny app for exploring the ICU cohort data created in Q1. The app should reside in the `mimiciv_shiny` folder. The app should contains at least two tabs. One tab provides easy access to the graphical and numerical summaries of variables (demographics, lab measurements, vitals) in the ICU cohort. The other allows user to choose a specific patient in the cohort and display the patient's ADT and ICU stay information as we did in Q1 of HW3.
+
+**Answer:** My Shiny app (app.R) is in the `mimiciv_shiny` folder. The app contains two tabs. The first tab provides easy access to the graphical and numerical summaries of variables (demographics, lab measurements, vitals) in the ICU cohort. The second tab allows user to choose a specific patient in the cohort and display the patient's ADT and ICU stay information as we did in Q1 of HW3.
