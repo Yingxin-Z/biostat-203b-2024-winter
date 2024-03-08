@@ -1,28 +1,37 @@
+## ---------------------------
+##
+## Script name: app.R
+##
+## Purpose of script: To create a shiny app for summaries and plots
+##
+## Author: Yingxin Zhang, UID:006140202
+##
+## Date Created: 2024-03-07
+##
+## Copyright (c) 2024 Yingxin Zhang
+##
+## ---------------------------
+
+# Load the required libraries
 library(shiny)
-library(gtsummary)
-library(dplyr)
-library(tidyr)
 library(bigrquery)
+library(dbplyr)
 library(DBI)
 library(gt)
+library(gtsummary)
 library(tidyverse)
-
-if (exists("con_bq")) {
-  dbDisconnect(con_bq)
-}
-rm(list = ls())
 
 # Load the ICU cohort data
 mimic_icu_cohort <- readRDS("mimic_icu_cohort.rds") |>
   as_tibble() |>
-  mutate(los_group = cut(los, breaks = c(0, 2.5, 5, 10, 15, 20, 115)),
+  mutate(los_group = cut(los, breaks = c(0, 2, 5, 10, 15, 20, 115)),
          age_group = cut(age_intime, 
                          breaks = c(17, 30, 40, 50, 60, 70, 80, 90, 103)))
 
-# path to the service account token 
-satoken <- "biostat-203b-2024-winter-313290ce47a6.json"
-# BigQuery authentication using service account
-bq_auth(path = satoken)
+# Here I put the token in the same directory as the app.R file, 
+# if you did not connect before and want to use the token, please uncomment the following lines
+# satoken <- "biostat-203b-2024-winter-313290ce47a6.json"
+# bq_auth(path = satoken)
 
 # connect to the BigQuery database `biostat-203b-2024-winter.mimic4_v2_2`
 con_bq <- dbConnect(
@@ -44,8 +53,9 @@ d_items <- tbl(con_bq, "d_items") |>
   select(itemid, abbreviation) |> as_tibble()
 
 # Define demographic variables
-demo_vars <- c("race", "insurance", "marital_status", "gender", "age_intime")
-demo_vars_ctg <- c("race", "insurance", "marital_status", "gender")
+demo_vars_ctg <- c("race", "insurance", "marital_status", "gender", 
+                   "age_group", "first_careunit", "last_careunit", 
+                   "admission_type", "admission_location")
 
 # Define lab measurement variables
 lab_vars <- c("Creatinine", "Potassium", "Sodium", "Chloride", "Bicarbonate", 
@@ -56,164 +66,82 @@ vital_vars <- c("Heart Rate", "Non Invasive Blood Pressure systolic",
                 "Non Invasive Blood Pressure diastolic", 
                 "Temperature Fahrenheit", "Respiratory Rate")
 
-list(
-  list(demo_vars, lab_vars, vital_vars), 
-  list("Table 1. Demographic characteristics of MIMIC IV", 
-       "Table 2. Lab measurements of MIMIC IV", 
-       "Table 3. Vital measurements of MIMIC IV")
-) %>% 
-  pmap(function(key_vars, title){
-    mimic_icu_cohort %>% 
-      select(
-        all_of(key_vars), los_group
-      ) %>% 
-      tbl_summary(
-        by = los_group, missing = "no"
-      ) %>% 
-      add_n() %>% 
-      add_overall() %>% 
-      modify_header(label = "**Characteristics**") %>%
-      modify_spanning_header(
-        starts_with("stat_") ~ "**Length of ICU Stay**"
-      ) %>%
-      modify_caption(title) %>%
-      bold_labels() %>% 
-      as_gt()
-  }) %>% 
-  set_names("demo_table", "lab_table", "vital_table") %>% 
-  list2env(envir = .GlobalEnv)
+## Lab measurement long format
+long_lab <- pivot_longer(mimic_icu_cohort, cols = lab_vars, 
+                         names_to = "Variable", values_to = "Value")
 
-## Demographic plots
-# for race, insurance, marital_status, gender
-plots_demo <- list()
+long_lab_filtered <- long_lab |>
+  group_by(Variable) |>
+  mutate(
+    Q1 = quantile(Value, 0.25, na.rm = TRUE),
+    Q3 = quantile(Value, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1
+  ) |>
+  filter(Value >= (Q1 - 1.5 * IQR) & Value <= (Q3 + 1.5 * IQR)) |>
+  select(-c(Q1, Q3, IQR))
 
-# Iterate over each demographic variable
-for (var in demo_vars_ctg) {
-  p <- ggplot(mimic_icu_cohort) +
-    geom_bar(mapping = aes(x = !!sym(var), fill = los_group)) +
-    labs(title = paste("Length of ICU Stay vs ", var)) +
-    theme(axis.title = element_text(size = 8))
-  
-  # Add the plot to the list
-  plots_demo[[var]] <- p
-}
+# Vital measurement long format
+long_vital <- pivot_longer(mimic_icu_cohort, cols = vital_vars, 
+                         names_to = "Variable", values_to = "Value")
 
-# for age_intime
-demo_plots_age <- ggplot(data = mimic_icu_cohort) + 
-  geom_bar(mapping = aes(x = age_group, fill = los_group)) +
-  labs(title = "Length of ICU Stay vs age at intime") +
-  labs(x = "Age at Intime (years)", 
-       y = "Count",
-       fill = "Length of ICU Stay (los)") + 
-  theme_minimal()
+long_vital_filtered <- long_vital |>
+  group_by(Variable) |>
+  mutate(
+    Q1 = quantile(Value, 0.25, na.rm = TRUE),
+    Q3 = quantile(Value, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1
+  ) |>
+  filter(Value >= (Q1 - 1.5 * IQR) & Value <= (Q3 + 1.5 * IQR)) |>
+  select(-c(Q1, Q3, IQR))
 
-# combine all plots
-plots_demo[["age_intime"]] <- demo_plots_age
-
-## Lab measurement plots
-plots_lab <- list()
-
-# Iterate over each demographic variable
-for (var in lab_vars) {
-  p <- ggplot(mimic_icu_cohort, aes(x = !!sym(var), y = los)) +
-    # geom_point() +
-    geom_smooth() +
-    labs(title = paste("Length of ICU Stay vs ", var)) +
-    theme(axis.title = element_text(size = 12), 
-          legend.text = element_text(size = 8))
-  theme_minimal()
-  
-  # Add the plot to the list
-  plots_lab[[var]] <- p
-}
-
-## Vital measurement plots
-plots_vital <- list()
-
-# Iterate over each demographic variable
-for (var in vital_vars) {
-  p <- ggplot(mimic_icu_cohort, aes(x = !!sym(var), y = los)) +
-    geom_smooth() +
-    labs(title = paste("Length of ICU Stay vs ", var)) +
-    theme_minimal()
-  
-  # Add the plot to the list
-  plots_vital[[var]] <- p
-}
-
-
-
+################################################
+################################################
 # Define the UI for the Shiny app
 ui <- fluidPage(
-  
   # Application title
   titlePanel("ICU Cohort Explorer"),
   
-  # Sidebar layout with tabset panel
+  # Sidebar layout
   sidebarLayout(
     sidebarPanel(
-      # Tabset panel with two tabs
-      tabsetPanel(
-        tabPanel("Summary and Visualization", 
-          # Input: drop-down list for Demographic variables ----
-          selectInput(
-            inputId = "demo", 
-            label = "Demographic characteristics", 
-            choices = c(
-              "race", "insurance", "marital status", "gender", "age at intime"
-            )
-          ),
-          # Input: drop-down list for Lab measurements ----
-          selectInput(
-            inputId = "lab",
-            label = "Lab measurements",
-            choices = c(
-              "Creatinine", "Potassium", "Sodium", "Chloride", "Bicarbonate", 
-              "Hematocrit", "Glucose", "White Blood Cells"
-            )
-          ),
-          # Input: drop-down list for Vital measurements ----
-          selectInput(
-            inputId = "vital",
-            label = "Vital measurements",
-            choices = c(
-              "Heart Rate", "Non Invasive Blood Pressure systolic", 
-              "Non Invasive Blood Pressure diastolic", 
-              "Temperature Fahrenheit", "Respiratory Rate"
-            )
-          )
-        ),
-        tabPanel("Patient Information",
-          # Select patient ID
-            selectInput(
-              inputId = "patient_id", 
-              label = "Select Patient ID",
-              choices = unique(mimic_icu_cohort$subject_id)
-            )
-         )
-      )
-    ),
+      tabPanel("Summary and Visualization of Characteristics", 
+        # Input: drop-down list for variables ----
+        selectInput(
+          inputId = "char",
+          label = "Characteristics of Interest", 
+          choices = c(
+            "Race" = "race", 
+            "Insurance" = "insurance", 
+            "Marital status" = "marital_status", 
+            "Gender" = "gender", 
+            "Age at intime" = "age_group", 
+            "First care unit" = "first_careunit", 
+            "Last care unit" = "last_careunit", 
+            "Admission location" = "admission_location", 
+            "Lab events", "Vital events")), 
+        # add a "outlier_remover" checkbox
+        checkboxInput(
+          inputId = "remove_outliers", 
+          label = "Remove outliers in the lab/vital measurement plots 
+          based on the IQR method", 
+          value = FALSE)),
+       tabPanel("Patient Information",
+         #Select patient ID
+         selectInput(
+           inputId = "patient_id", 
+           label = "Select Patient ID",
+           choices = unique(mimic_icu_cohort$subject_id)))),
     
     # Main panel for displaying tab content
     mainPanel(
       tabsetPanel(
         tabPanel(
-          title = "Demographics", 
-          gt_output("demo_table"), 
-          plotOutput("demo_plot")
-        ),
+          title = "Summary and Visualization of Characteristics", 
+          plotOutput("char_plot"), 
+          gt_output("char_table")
+        ), 
         tabPanel(
-          title = "Lab Measurements", 
-          gt_output("lab_table"), 
-          plotOutput("lab_plot")
-        ),
-        tabPanel(
-          title = "Vital measurements", 
-          gt_output("vital_table"), 
-          plotOutput("vital_plot")
-        ),
-        tabPanel(
-          title = "Patient Information",
+          title = "Patient ADT and ICU Information",
           # Display the patient information
           textOutput("patient_info_output"),
           plotOutput("ADTplot"), 
@@ -223,51 +151,78 @@ ui <- fluidPage(
   )
 )
 
+################################################
 # Define the server logic
 server <- function(input, output) {
-  demo_plot_source <- reactive({
-    switch(
-      input$demo, 
-      "race" = plots_demo[[1]], 
-      "insurance" = plots_demo[[2]], 
-      "marital status" = plots_demo[[3]], 
-      "gender" = plots_demo[[4]], 
-      "age at intime" = plots_demo[[5]]
-    )
-  })
+  # Render the characteristic table and plot
+  output$char_plot <- renderPlot(
+    if (input$char %in% demo_vars_ctg) {
+      inchar <- as.character(input$char)
+      ggplot(mimic_icu_cohort) +
+        geom_bar(mapping = aes(x = !!sym(inchar), fill = los_group)) +
+        coord_flip() +
+        labs(title = paste0("Distributions of ", as.character(inchar), 
+                            " by length of ICU stay")) +
+        theme(axis.title = element_text(size = 8))
+    } else if (input$char == "Lab events") {
+      if (input$remove_outliers) {
+        ggplot(long_lab_filtered, aes(x = Variable, y = Value)) +
+          geom_boxplot() +
+          coord_flip() +
+          theme_minimal() +
+          labs(title = "Boxplot of lab measurements (outliers removed)")
+      } else {
+        ggplot(long_lab, aes(x = Variable, y = Value)) +
+          geom_boxplot() +
+          coord_flip() + 
+          theme_minimal() + 
+          labs(title = "Boxplot of lab measurements")
+      }
+    } else {
+      if (input$remove_outliers) {
+        ggplot(long_vital_filtered, aes(x = Variable, y = Value)) +
+          geom_boxplot() +
+          coord_flip() +
+          theme_minimal() +
+          labs(title = "Boxplot of vital measurements (outliers removed)")
+      } else {
+        ggplot(long_vital, aes(x = Variable, y = Value)) +
+          geom_boxplot() +
+          coord_flip() + 
+          theme_minimal() + 
+          labs(title = "Boxplot of vital measurements")
+      }
+    }
+  )
   
-  lab_plot_source <- reactive({
-    switch(
-      input$lab, 
-      "Creatinine" = plots_lab[[1]],
-      "Potassium" = plots_lab[[2]],
-      "Sodium" = plots_lab[[3]],
-      "Chloride" = plots_lab[[4]],
-      "Bicarbonate" = plots_lab[[5]],
-      "Hematocrit" = plots_lab[[6]],
-      "Glucose" = plots_lab[[7]],
-      "White Blood Cells" = plots_lab[[8]]
-    )
-  })
-  
-  vital_plot_source <- reactive({
-    switch(
-      input$vital, 
-      "Heart Rate" = plots_vital[[1]],
-      "Non Invasive Blood Pressure systolic" = plots_vital[[2]],
-      "Non Invasive Blood Pressure diastolic" = plots_vital[[3]],
-      "Temperature Fahrenheit" = plots_vital[[4]],
-      "Respiratory Rate" = plots_vital[[5]]
-    )
-  })
-  
-  output$demo_table <- render_gt(demo_table)
-  output$lab_table <- render_gt(lab_table)
-  output$vital_table <- render_gt(vital_table)
-  
-  output$demo_plot <- renderPlot({demo_plot_source()})
-  output$lab_plot <- renderPlot({lab_plot_source()})
-  output$vital_plot <- renderPlot({vital_plot_source()})
+  output$char_table <- render_gt(
+    if (input$char %in% demo_vars_ctg) {
+      mimic_icu_cohort |>
+        select(all_of(as.character(input$char)), los_long) |>
+        tbl_summary(by = los_long) |>
+        as_gt() |>
+        tab_header(
+          title = paste("Summary of ", input$char, 
+                        " by length of stay (if >= 2)")
+        )
+    } else if (input$char == "Lab events") {
+      mimic_icu_cohort |>
+        select(all_of(lab_vars), los_long) |>
+        tbl_summary(by = los_long) |>
+        as_gt() |> 
+        tab_header(
+          title = "Summary of lab events by length of stay (if >= 2)"
+        )
+    } else {
+      mimic_icu_cohort |>
+        select(all_of(vital_vars), los_long) |>
+        tbl_summary(by = los_long) |>
+        as_gt() |>
+        tab_header(
+          title = "Summary of vital events by length of stay (if >= 2)"
+        )
+    }
+  )
   
   # Render the patient information output
   output$patient_info_output <- renderText({
@@ -275,9 +230,9 @@ server <- function(input, output) {
     req(input$patient_id)
     
     # Filter the ICU cohort data for the selected patient ID
-    patient_data <- mimic_icu_cohort %>%
-      filter(subject_id == input$patient_id) %>%
-      select(subject_id, gender, age_intime, race) %>%
+    patient_data <- mimic_icu_cohort |>
+      filter(subject_id == input$patient_id) |>
+      select(subject_id, gender, age_intime, race) |>
       slice(1)
     
     # Return patient information as a formatted text
@@ -328,13 +283,16 @@ server <- function(input, output) {
       left_join(d_icd_diagnoses, by = "icd_code")
     
     # change the colname "long_title" to "long_title_diagnoses"
-    colnames(diagnoses)[colnames(diagnoses) == "long_title"] <- "long_diagnoses"
+    colnames(diagnoses)[colnames(diagnoses) == "long_title"] <- "long_diag"
     
     # pull top 3 diagnoses
     top3_diagnoses <- diagnoses |>
-      count(long_diagnoses, sort = TRUE) |>
+      count(long_diag, sort = TRUE) |>
       slice(1:3) |>
-      pull(long_diagnoses)
+      pull(long_diag)
+    
+    # number of procedure types
+    num_proc <- length(unique(procedures$Procedure))
     
     # draw the ADT history for patient
     ggplot() +
@@ -358,7 +316,7 @@ server <- function(input, output) {
       scale_y_continuous(breaks = 1:3, labels = c("Procedure", "Lab", "ADT")) +
       coord_cartesian(ylim = c(1, 3)) +
       guides(size = FALSE) +
-      guides(shape = guide_legend(nrow = 5)) +
+      guides(shape = guide_legend(nrow = as.integer(num_proc/2) + 1)) +
       guides(color = guide_legend(title = "Care Unit"))
   })
   
@@ -374,8 +332,8 @@ server <- function(input, output) {
       as_tibble()
 
     # draw the ICU vitals and put different vitals in different facets
-    ggplot(chartevents, aes(x = charttime, y = valuenum, 
-                            color = abbreviation)) +
+    ggplot(chartevents, 
+           aes(x = charttime, y = valuenum, color = abbreviation)) +
       geom_line() +
       geom_point() +
       facet_grid(abbreviation ~ stay_id, scales = "free") +
@@ -383,8 +341,8 @@ server <- function(input, output) {
       theme(axis.title.y = element_blank(),
             panel.background = element_rect(fill = "white"),
             panel.grid = element_line(color = "gray", linewidth = 0.5),
-            panel.border = element_rect(color = "grey", 
-                                        fill = NA, linewidth = 0.8),
+            panel.border = element_rect(
+              color = "grey", fill = NA, linewidth = 0.8),
             strip.text = element_text(size = 10)) + 
       scale_color_brewer(palette = "Set1") +
       theme(axis.title.x = element_blank()) +

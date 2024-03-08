@@ -115,7 +115,7 @@ labevents_tble <- tbl(con_bq, "labevents") |>
   left_join(
     select(tbl(con_bq, "d_labitems"), itemid, label), 
     by = "itemid") |>
-  # If multiple values of the same item with the same storetime, use the one with the latest charttime.
+  # If multiple values of same item with same storetime, use latest charttime
   group_by(subject_id, stay_id, storetime, label) |> 
   filter(charttime == max(charttime)) |>
   ungroup() |>
@@ -202,12 +202,12 @@ mimic_icu_cohort |>
   tbl_summary(by = los_long) |>
   as_gt() |>
   # save the summary table to mimic_icu_cohort_summary.html
-  gtsave("mimic_icu_cohort_gtsummary.html")
+  gtsave("mimic_icu_summary.html")
 ```
 
-My tibble after preprocessing is saved in `mimic_icu_cohort` and the numerical summary is saved in `mimic_icu_cohort_gtsummary.html` and displayed above.
+My tibble after preprocessing is saved in `mimic_icu_cohort` and the numerical summary is saved in `mimic_icu_summary.html` and displayed above.
 
-<iframe width=95% height="500" src="./mimic_icu_cohort_summary.html"></iframe>
+<iframe width=95% height="500" src="./mimic_icu_summary.html"></iframe>
 
 ### Q1.9 Save the final tibble
 
