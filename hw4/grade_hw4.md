@@ -1,6 +1,6 @@
 *Yingxin Zhang*
 
-### Overall Grade: 245/250
+### Overall Grade: 248/250
 
 ### Late penalty
 
@@ -45,13 +45,13 @@
 
     All yes.
 
-### Reproducibility: 5/10
+### Reproducibility: 8/10
 
 -   Are the materials (files and instructions) submitted to the `main` branch sufficient for reproducing all the results? Just click the `Render` button will produce the final `html`? 
 
 -   If necessary, are there clear instructions, either in report or in a separate file, how to reproduce the results?
 
-    `satoken <- "biostat-203b-2024-winter-313290ce47a6.json”` does not work since the json file is in the same folder as your qmd file. `-5.0`
+    `satoken <- "biostat-203b-2024-winter-313290ce47a6.json”` does not work since the json file is in the same folder as your qmd file. `-2.0`
 
 ### R code style: 20/20
 
