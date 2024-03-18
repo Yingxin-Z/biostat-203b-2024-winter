@@ -51,7 +51,7 @@
 
 -   If necessary, are there clear instructions, either in report or in a separate file, how to reproduce the results?
 
-    `satoken <- "biostat-203b-2024-winter-313290ce47a6.json”` does not work since the json file is in the same folder as your qmd file. `-2.0`
+    `satoken <- "biostat-203b-2024-winter-313290ce47a6.json”` does not work since the json file is in the same folder as your qmd file. But I considered you comment. `-2.0`
 
 ### R code style: 20/20
 
