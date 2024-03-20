@@ -47,6 +47,8 @@ Using the ICU cohort `mimiciv_icu_cohort.rds` you built in Homework 4, develop a
 
 **Answer:**
 
+- Notes: Here I also upload some `rds` files (ML models) to save your render time.
+
 ## 1. Data preprocessing and feature engineering
 
 First, I load the ICU cohort `mimic_icu_cohort.rds` and select the features I need for the machine learning algorithms.
@@ -187,13 +189,14 @@ data_split
 ```
 
 ```{r}
-# training set and test set
+# training set
 train_set <- training(data_split) |>
   select(-subject_id, -hadm_id, -stay_id)
 dim(train_set)
 ```
 
 ```{r}
+# testing set
 test_set <- testing(data_split) |>
   select(-subject_id, -hadm_id, -stay_id)
 dim(test_set)
@@ -226,12 +229,14 @@ Then I set up the logistic regression with enet regularization, random forest, b
 ### 3.1 Logistic regression with enet regularization
 
 ```{r}
+# set up the logistic regression model
 logit_model <- logistic_reg(penalty = tune(), mixture = tune()) |>
   set_engine("glmnet", standardize = TRUE) |>
   print()
 ```
 
 ```{r}
+# bundle the recipe (R) and model into workflow.
 logit_wf <- workflow() |>
   add_recipe(icu_recipe) |>
   add_model(logit_model) |>
@@ -239,12 +244,13 @@ logit_wf <- workflow() |>
 ```
 
 ```{r}
-# tuning grid
+# tune the penalty and mixture hyperparameters
 logit_grid <- grid_regular(
   penalty(range = c(-6, 3)), 
   mixture(), 
   levels = c(100, 5))
 
+# fit CV
 if (file.exists("logit_res.rds")) {
   logit_res <- read_rds("logit_res.rds")
 } else {
@@ -264,6 +270,7 @@ logit_res
 ```
 
 ```{r}
+# visualize the CV results
 logit_res |>
   # aggregate metrics from K folds
   collect_metrics() |>
@@ -276,7 +283,7 @@ logit_res |>
 ```
 
 ```{r}
-# Show the top 5 models
+# the top 5 models
 logit_res |>
   show_best("roc_auc")
 ```
@@ -289,7 +296,7 @@ best_logit
 ```
 
 ```{r}
-# Final workflow
+# final workflow
 final_logit <- logit_wf |>
   finalize_workflow(best_logit)
 final_logit
@@ -298,6 +305,7 @@ final_logit
 ### 3.2 Random forest
 
 ```{r}
+# set up the random forest model
 rf_mod <- 
   rand_forest(
     mode = "classification",
@@ -311,6 +319,7 @@ rf_mod
 ```
 
 ```{r}
+# bundle the recipe (R) and model into workflow.
 rf_wf <- workflow() |>
   add_recipe(icu_recipe) |>
   add_model(rf_mod)
@@ -318,12 +327,14 @@ rf_wf
 ```
 
 ```{r}
+# tune the number of trees and the number of features to use in each split
 rf_grid <- grid_regular(
   trees(range = c(300L, 800L)), 
   mtry(range = c(1L, 5L)),
   levels = c(10, 10)
   )
 
+# fit CV
 if (file.exists("rf_res.rds")) {
   rf_res <- read_rds("rf_res.rds")
 } else {
@@ -358,13 +369,14 @@ rf_res |>
 ```
 
 ```{r}
+# the best model
 best_rf <- rf_res |>
   select_best("roc_auc")
 best_rf
 ```
 
 ```{r}
-# Final workflow
+# final workflow
 final_rf <- rf_wf |>
   finalize_workflow(best_rf)
 final_rf
@@ -373,6 +385,7 @@ final_rf
 ### 3.3 Boosting
 
 ```{r}
+# set up the boosting model
 gb_mod <- 
   boost_tree(
     mode = "classification",
@@ -385,6 +398,7 @@ gb_mod
 ```
 
 ```{r}
+# bundle the recipe (R) and model into workflow.
 gb_wf <- workflow() |>
   add_recipe(icu_recipe) |>
   add_model(gb_mod)
@@ -392,12 +406,14 @@ gb_wf
 ```
 
 ```{r}
+# tune the tree depth and learning rate
 gb_grid <- grid_regular(
   tree_depth(range = c(1L, 5L)),
   learn_rate(range = c(-4, 1), trans = log10_trans()),
   levels = c(3, 10)
   )
 
+# fit CV
 if (file.exists("gb_res.rds")) {
   gb_res <- read_rds("gb_res.rds")
 } else {
@@ -413,6 +429,7 @@ gb_res
 ```
 
 ```{r}
+# visualize the CV results
 gb_res |>
   collect_metrics() |>
   print(width = Inf) |>
@@ -437,7 +454,7 @@ best_gb
 ```
 
 ```{r}
-# Final workflow
+# final workflow
 final_gb <- gb_wf |>
   finalize_workflow(best_gb)
 final_gb
@@ -445,18 +462,23 @@ final_gb
 ### 3.4 Model stacking
 
 ```{r}
+# build the stacked ensemble
 if (file.exists("icu_model_st.rds")) {
   icu_model_st <- read_rds("icu_model_st.rds")
 } else {
   icu_model_st <- 
+    # initialize the stack
     stacks() |>
+    # add candidate members
     add_candidates(logit_res) |>
     add_candidates(rf_res) |>
     add_candidates(gb_res) |>
+    # determine how to combine their predictions
     blend_predictions(
       penalty = 10^(-6:2),
       metrics = c("roc_auc")
       ) |>
+    # fit the candidates with nonzero stacking coefficients
     fit_members()
   write_rds(icu_model_st, "icu_model_st.rds")
 }
@@ -469,7 +491,15 @@ icu_model_st
 ```{r}
 # plot the results
 autoplot(icu_model_st)
+```
+
+```{r}
+# show the relationship more directly
 autoplot(icu_model_st, type = "members")
+```
+
+```{r}
+# see the top results
 autoplot(icu_model_st, type = "weights")
 ```
 
@@ -479,6 +509,12 @@ Report both the area under ROC curve and accuracy for each machine learning algo
 
 ### 4.1 AUC and accuracy of each model
 #### 4.1.1 Logistic regression with enet regularization
+
+I fit the whole training set and predict the test cases based on logistic regression. Then I compute the test metrics as follows.
+
+- The AUC of the logistic regression model is 0.600. This means that there is a 60% chance that the model will be able to distinguish between a randomly chosen positive instance and a randomly chosen negative instance. 
+
+- The accuracy is 0.573, which means that 57.3% of the logistic regression model's predictions are correct.
 
 ```{r}
 # Fit the whole training set, then predict the test cases based on logistic regression
@@ -493,6 +529,12 @@ logit_fit |>
 
 #### 4.1.2 Random forest
 
+I fit the whole training set and predict the test cases based on random forest. Then I compute the test metrics as follows.
+
+- The AUC of the random forest model is 0.620. This means that there is a 62% chance that the model will be able to distinguish between a randomly chosen positive instance and a randomly chosen negative instance.
+
+- The accuracy is 0.586, which means that 58.6% of the random forest model's predictions are correct.
+
 ```{r}
 # Fit the whole training set, then predict the test cases based on RF
 rf_fit <- 
@@ -505,6 +547,12 @@ rf_fit |>
 ```
 
 #### 4.1.3 Boosting
+
+I fit the whole training set and predict the test cases based on boosting. Then I compute the test metrics as follows. 
+
+- The AUC of the boosting model is 0.617. This means that there is a 61.7% chance that the model will be able to distinguish between a randomly chosen positive instance and a randomly chosen negative instance.
+
+- The accuracy is 0.583, which means that 58.3% of the boosting model's predictions are correct.
 
 ```{r}
 # Fit the whole training set, then predict the test cases based on GB
@@ -519,8 +567,14 @@ gb_fit |>
 
 #### 4.1.4 Model stacking
 
+I predict the test cases based on model stacking by probability and by class respectively. Then I compute the AUC and accuracy as follows. 
+
+- The AUC of the stacking model is 0.622. This means that there is a 62.2% chance that the model will be able to distinguish between a randomly chosen positive instance and a randomly chosen negative instance.
+
+- The accuracy is 0.586, which means that 58.6% of the stacking model's predictions are correct.
+
 ```{r}
-# predict the test set
+# predict the test set by probability
 icu_test_pred_st <- 
   icu_model_st |>
   predict(test_set, type = "prob") |>
@@ -535,6 +589,7 @@ st_auc
 ```
 
 ```{r}
+# predict the test set by class
 icu_pred_class <-
   test_set |>
   select(los_long) |>
@@ -550,6 +605,7 @@ icu_pred_class <-
 ```
 
 ```{r}
+# compute the accuracy
 accuracy <- map(
   colnames(icu_pred_class),
   ~mean(icu_pred_class$los_long == pull(icu_pred_class, .x))
@@ -592,11 +648,14 @@ p <- ggplot(importance_rf, aes(x = reorder(Feature, Importance), y = Importance)
   geom_col() +
   coord_flip() +
   geom_text(aes(label = round(Importance, 2)), hjust = -0.1) +
-  labs(x = "Features", y = "Importance", 
-       title = "Feature Importance in Random Forest Model") +
+  labs(x = "Features", y = "Importance") +
   theme(panel.background = element_rect(fill = "white"),
         panel.grid = element_line(color = "gray", linewidth = 0.2),
-        panel.border = element_rect(fill = NA, linewidth = 0.5))
+        panel.border = element_rect(fill = NA, linewidth = 0.5), 
+        # increase the font size
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 15)
+        )
 
 ggsave("feature_importance_rf.png", p, width = 18, height = 8)
 ```
@@ -613,11 +672,13 @@ p <- ggplot(importance_gb, aes(x = reorder(Feature, Gain), y = Gain)) +
   geom_col() +
   coord_flip() +
   geom_text(aes(label = round(Gain, 2)), hjust = -0.1) +
-  labs(x = "Features", y = "Gain", 
-       title = "Feature Importance in Gradient Boosting Model") +
+  labs(x = "Features", y = "Gain") +
   theme(panel.background = element_rect(fill = "white"),
         panel.grid = element_line(color = "gray", linewidth = 0.2),
-        panel.border = element_rect(fill = NA, linewidth = 0.5))
+        panel.border = element_rect(fill = NA, linewidth = 0.5),
+        # increase the font size
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 15))
 
 ggsave("feature_importance_gb.png", p, width = 18, height = 8)
 ```
@@ -647,6 +708,7 @@ metrics_list <- list(
   stacking = st_auc
 )
 
+# tabulate the accuracy and roc_auc results
 bind_rows(metrics_list, .id = "model") |>
   filter(.metric == "accuracy" | .metric == "roc_auc") |>
   select(-.estimator, -.config) |>
@@ -695,7 +757,7 @@ roc_curve |> ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
 In summary, the choice of model should consider the trade-off between performance and interpretability. Logistic regression offers high interpretability but lower performance, while random forests and boosting models provide a good balance between the two. Model stacking, while showing a slight performance advantage, sacrifices interpretability due to its complex nature. Therefore, the choice of model should be based on the specific needs of the application, considering the importance of interpretability, the complexity of the data, and the desired level of predictive performance.
 
 ## 5. Conclusions
-In this homework, I developed machine learning approaches to predict whether a patient's ICU stay will be longer than 2 days using the MIMIC-IV ICU cohort. I preprocessed the data, partitioned it into training and test sets, and trained and tuned logistic regression with enet regularization, random forest, boosting, and model stacking models. I compared the classification performance of the models on the test set, identified the most important features in predicting long ICU stays, and evaluated the models in terms of performance and interpretability. The results showed that model stacking slightly outperformed the other models in terms of accuracy and ROC AUC, while logistic regression provided the highest interpretability.
+In this homework, I developed machine learning approaches to predict whether a patient's ICU stay will be longer than 2 days using the MIMIC-IV ICU cohort. First, I preprocessed the data by imputing missing values/outliers and correcting data types. Then, I partitioned the data into 50% training set and 50% test set, and trained and tuned logistic regression with enet regularization, random forest, boosting models, plus a model stacking approach. At last, I compared the classification performance of the models on the test set, identified the most important features in predicting long ICU stays, and evaluated the models in terms of performance and interpretability. The results showed that model stacking slightly outperformed the other models in terms of accuracy and ROC AUC, while logistic regression provided the highest interpretability. `age_intime`, `Heart_Rate`, `Non_Invasive_Blood_Pressure_systolic`, `White_Blood_Cells`, `Glucose`, and `Hematocrit` were identified as the most important features by RF and Boosting models in predicting long ICU stays.
 
 
 
