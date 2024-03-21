@@ -47,8 +47,6 @@ Using the ICU cohort `mimiciv_icu_cohort.rds` you built in Homework 4, develop a
 
 **Answer:**
 
-- Notes: Here I also upload some `rds` files (ML models) to save your render time.
-
 ## 1. Data preprocessing and feature engineering
 
 First, I load the ICU cohort `mimic_icu_cohort.rds` and select the features I need for the machine learning algorithms.
@@ -106,7 +104,6 @@ mimic_icu_cohort |>
   theme(panel.background = element_rect(fill = "white"),
         panel.grid = element_line(color = "gray", linewidth = 0.2),
         panel.border = element_rect(fill = NA, linewidth = 0.5))
-
 ```
 Before imputing the missing values, I convert the outliers of the continuous variables to the missing values. 
 
@@ -517,7 +514,7 @@ I fit the whole training set and predict the test cases based on logistic regres
 - The accuracy is 0.573, which means that 57.3% of the logistic regression model's predictions are correct.
 
 ```{r}
-# Fit the whole training set, then predict the test cases based on logistic regression
+# Fit the whole training set, then predict the test cases based on logit
 logit_fit <- 
   final_logit |>
   last_fit(data_split)
@@ -612,7 +609,9 @@ accuracy <- map(
   ) |>
   set_names(colnames(icu_pred_class)) |>
   as_tibble() |>
-  pivot_longer(c(everything(), -los_long), names_to = "model", values_to = "accuracy") |>
+  pivot_longer(c(everything(), -los_long), 
+               names_to = "model", 
+               values_to = "accuracy") |>
   # sort the accuracy
   arrange(desc(accuracy)) |>
   print()
@@ -641,10 +640,12 @@ importance_rf <- data.frame(
   Importance = importance,
   stringsAsFactors = FALSE
 )
-importance_rf <- importance_rf[order(importance_rf$Importance, decreasing = TRUE), ]
+importance_rf <- 
+  importance_rf[order(importance_rf$Importance, decreasing = TRUE), ]
 
 # plot the feature importance
-p <- ggplot(importance_rf, aes(x = reorder(Feature, Importance), y = Importance)) +
+p <- ggplot(importance_rf, 
+            aes(x = reorder(Feature, Importance), y = Importance)) +
   geom_col() +
   coord_flip() +
   geom_text(aes(label = round(Importance, 2)), hjust = -0.1) +
@@ -740,8 +741,6 @@ roc_curve |> ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
   theme(panel.background = element_rect(fill = "white"),
         panel.grid = element_line(color = "gray", linewidth = 0.2),
         panel.border = element_rect(fill = NA, linewidth = 0.5))
-
-
 ```
 
 #### 4.3.2 Interpretability (logit > rf > XGB > stacking)
