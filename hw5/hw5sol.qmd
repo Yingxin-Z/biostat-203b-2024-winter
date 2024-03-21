@@ -1,0 +1,762 @@
+---
+title: "Biostat 203B Homework 5"
+subtitle: Due Mar 22 @ 11:59PM
+author: "Yingxin Zhang, UID: 006140202"
+format:
+  html:
+    theme: cosmo
+    embed-resources: true
+    number-sections: false
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    code-fold: false
+---
+
+Display machine information:
+```{r}
+sessionInfo()
+```
+
+Display my machine memory.
+```{r}
+memuse::Sys.meminfo()
+```
+
+Load database libraries and the tidyverse frontend:
+```{r}
+library(dbplyr)
+library(DBI)
+library(gt)
+library(gtsummary)
+library(tidyverse)
+library(lubridate)
+library(miceRanger)
+library(GGally)
+library(tidymodels)
+library(keras)
+library(ranger)
+library(stacks)
+library(xgboost)
+library(ggplot2)
+```
+
+## Predicting ICU duration
+
+Using the ICU cohort `mimiciv_icu_cohort.rds` you built in Homework 4, develop at least three machine learning approaches (logistic regression with enet regularization, random forest, boosting, SVM, MLP, etc) plus a model stacking approach for predicting whether a patient's ICU stay will be longer than 2 days. You should use the `los_long` variable as the outcome. You algorithms can use patient demographic information (gender, age at ICU `intime`, marital status, race), ICU admission information (first care unit), the last lab measurements before the ICU stay, and first vital measurements during ICU stay as features. You are welcome to use any feature engineering techniques you think are appropriate; but make sure to not use features that are not available at an ICU stay's `intime`. For instance, `last_careunit` cannot be used in your algorithms. 
+
+**Answer:**
+
+## 1. Data preprocessing and feature engineering
+
+First, I load the ICU cohort `mimic_icu_cohort.rds` and select the features I need for the machine learning algorithms.
+
+```{r}
+# define the variables I need
+ctg_vars <- c("race", "insurance", "marital_status", "gender", 
+              "first_careunit")
+
+lab_vars <- c("Creatinine", "Potassium", "Sodium", "Chloride", "Bicarbonate", 
+              "Hematocrit", "Glucose", "White_Blood_Cells")
+
+vital_vars <- c("Heart_Rate", "Non_Invasive_Blood_Pressure_systolic", 
+                "Non_Invasive_Blood_Pressure_diastolic", 
+                "Temperature_Fahrenheit", "Respiratory_Rate")
+
+all_vars <- c(ctg_vars, lab_vars, vital_vars, "los_long", "age_intime", 
+              "subject_id", "hadm_id", "stay_id")
+
+# import data from rds file
+mimic_icu_cohort <- read_rds("../hw4/mimiciv_shiny/mimic_icu_cohort.rds") |>
+  rename_with(~ gsub(" ", "_", .x)) |>
+  select(all_of(all_vars)) |>
+  as_tibble()
+
+# convert the categorical variables to factor
+mimic_icu_cohort <- mimic_icu_cohort |>
+  mutate(across(all_of(ctg_vars), factor))
+
+# summary of the dataset (table)
+mimic_icu_cohort |>
+  select(-subject_id, -hadm_id, -stay_id) |>
+  tbl_summary(by = los_long)
+```
+
+Then, I check the missingness of the variables and visualize it as follows. From the plot, we can see that the missingness of the variables here is not severe as the most missingness is below 15%. Therefore, I will impute the missing values instead of removing the variables.
+
+```{r}
+# display the missing distribution of the variables and visualize it
+mimic_icu_cohort |>
+  map_df(~sum(is.na(.x))/nrow(mimic_icu_cohort)) |>
+  gather(variable, missing) |>
+  filter(missing > 0) |>
+  arrange(desc(missing)) |>
+  ggplot(aes(x = reorder(variable, missing), y = missing)) +
+  geom_col() +
+  labs(title = "Missingness of Variables",
+       x = "Variables",
+       y = "Proportion of Missingness") +
+  # display the value of the bar and approximate to 0.01%
+  geom_text(aes(label = scales::percent(missing, accuracy = 0.01)), 
+            vjust = -1, size = 3) +
+  coord_cartesian(ylim = c(0, 0.15)) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_line(color = "gray", linewidth = 0.2),
+        panel.border = element_rect(fill = NA, linewidth = 0.5))
+```
+Before imputing the missing values, I convert the outliers of the continuous variables to the missing values. 
+
+```{r}
+# write a function to convert the outliers to missing values
+outlier_to_na <- function(x) {
+  q1 <- quantile(x, 0.25, na.rm = TRUE)
+  q3 <- quantile(x, 0.75, na.rm = TRUE)
+  iqr <- q3 - q1
+  x[x < (q1 - 1.5 * iqr) | x > (q3 + 1.5 * iqr)] <- NA
+  x
+}
+
+# convert the outliers (IQR method) to missing values for lab and vital events
+mimic_icu_replace <- mimic_icu_cohort |>
+  mutate(across(c(lab_vars, vital_vars), outlier_to_na))
+```
+
+Here, I use miceRanger to impute the missing values. To save render time, I check if the imputed dataset is already saved. If not, I impute the missing values using miceRanger and save the imputed dataset as `mimic_icu_mice.rds`.
+
+```{r}
+if (file.exists("mimic_icu_mice.rds")) {
+  mimic_icu_mice <- read_rds("mimic_icu_mice.rds")
+} else {
+  # impute the missing values usingmiceRanger
+  seqTime <- system.time(
+    mimic_icu_mice <- miceRanger(
+      mimic_icu_replace, 
+      m=3, 
+      maxit=10,
+      returnModels = FALSE, 
+      verbose=TRUE
+    )
+  )
+  mimic_icu_mice |>
+    write_rds("mimic_icu_mice.rds")
+}
+```
+
+To check the imputed values, I plot the distributions of the imputed variables (black) and compare with the original ones (red). From the plot, we can see that the imputed values are similar to the original ones, which means the imputation is successful.
+
+```{r}
+# plot distributions of the imputed variables and compare with the original ones
+plotDistributions(mimic_icu_mice, vars = 'allNumeric')
+```
+
+After imputing the missing values, I choose the first imputed dataset and convert non-numeric variables to factors and scale numeric variables.
+
+```{r}
+# choose the first imputed dataset
+mimic_icu_imputed <- completeData(mimic_icu_mice)[[1]]
+
+# convert non-numeric variables to factors and scale numeric variables
+mimic_icu_final <- mimic_icu_imputed |>
+  mutate_if(is.character, as.factor) |>
+  mutate_if(is.numeric, scale) |>
+  mutate_if(is.logical, as.factor)
+```
+
+## 2. Partition data into 50% training set and 50% test set
+
+Stratify partitioning according to `los_long`. For grading purpose, sort the data by `subject_id`, `hadm_id`, and `stay_id` and use the seed `203` for the initial data split.
+
+```{r}
+library(rsample)
+set.seed(203)
+
+# sort
+mimic_icu_final <- mimic_icu_final |>
+  arrange(subject_id, hadm_id, stay_id)
+
+data_split <- initial_split(
+  mimic_icu_final, 
+  # stratify by los_long
+  strata = "los_long", 
+  prop = 0.5
+  )
+
+data_split
+```
+
+```{r}
+# training set
+train_set <- training(data_split) |>
+  select(-subject_id, -hadm_id, -stay_id)
+dim(train_set)
+```
+
+```{r}
+# testing set
+test_set <- testing(data_split) |>
+  select(-subject_id, -hadm_id, -stay_id)
+dim(test_set)
+```
+
+```{r}
+# recipe
+icu_recipe <- recipe(los_long ~ ., data = train_set) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_numeric_predictors()) |> 
+  print()
+```
+
+## 3. Train and tune the models using the training set
+
+Here I will use the logistic regression with enet regularization, random forest, boosting, and model stacking to predict whether a patient's ICU stay will be longer than 2 days. 
+
+First I set up the cross-validation folds to be shared by all models.
+
+```{r}
+# set cross-validation partitions
+set.seed(203)
+
+folds <- vfold_cv(train_set, v = 5)
+folds
+```
+
+Then I set up the logistic regression with enet regularization, random forest, boosting, and MLP models.
+
+### 3.1 Logistic regression with enet regularization
+
+```{r}
+# set up the logistic regression model
+logit_model <- logistic_reg(penalty = tune(), mixture = tune()) |>
+  set_engine("glmnet", standardize = TRUE) |>
+  print()
+```
+
+```{r}
+# bundle the recipe (R) and model into workflow.
+logit_wf <- workflow() |>
+  add_recipe(icu_recipe) |>
+  add_model(logit_model) |>
+  print()
+```
+
+```{r}
+# tune the penalty and mixture hyperparameters
+logit_grid <- grid_regular(
+  penalty(range = c(-6, 3)), 
+  mixture(), 
+  levels = c(100, 5))
+
+# fit CV
+if (file.exists("logit_res.rds")) {
+  logit_res <- read_rds("logit_res.rds")
+} else {
+  logit_res <- 
+    tune_grid(
+      object = logit_wf, 
+      resamples = folds, 
+      grid = logit_grid,
+      control = control_stack_grid()
+    )
+  write_rds(logit_res, "logit_res.rds")
+}
+```
+
+```{r}
+logit_res
+```
+
+```{r}
+# visualize the CV results
+logit_res |>
+  # aggregate metrics from K folds
+  collect_metrics() |>
+  print(width = Inf) |>
+  filter(.metric == "roc_auc") |>
+  ggplot(mapping = aes(x = penalty, y = mean, color = factor(mixture))) +
+  geom_point() +
+  labs(x = "Penalty", y = "CV AUC") +
+  scale_x_log10()
+```
+
+```{r}
+# the top 5 models
+logit_res |>
+  show_best("roc_auc")
+```
+
+```{r}
+# select the best model
+best_logit <- logit_res |>
+  select_best("roc_auc")
+best_logit
+```
+
+```{r}
+# final workflow
+final_logit <- logit_wf |>
+  finalize_workflow(best_logit)
+final_logit
+```
+
+### 3.2 Random forest
+
+```{r}
+# set up the random forest model
+rf_mod <- 
+  rand_forest(
+    mode = "classification",
+    # Number of predictors randomly sampled in each split
+    mtry = tune(),
+    # Number of trees in ensemble
+    trees = tune()
+  ) |> 
+  set_engine("ranger", importance = "impurity")
+rf_mod
+```
+
+```{r}
+# bundle the recipe (R) and model into workflow.
+rf_wf <- workflow() |>
+  add_recipe(icu_recipe) |>
+  add_model(rf_mod)
+rf_wf
+```
+
+```{r}
+# tune the number of trees and the number of features to use in each split
+rf_grid <- grid_regular(
+  trees(range = c(300L, 800L)), 
+  mtry(range = c(1L, 5L)),
+  levels = c(10, 10)
+  )
+
+# fit CV
+if (file.exists("rf_res.rds")) {
+  rf_res <- read_rds("rf_res.rds")
+} else {
+  rf_res <- 
+  tune_grid(
+    object = rf_wf, 
+    resamples = folds, 
+    grid = rf_grid,
+    control = control_stack_grid()
+  )
+  write_rds(rf_res, "rf_res.rds")
+}
+rf_res
+```
+
+```{r}
+# visualize CV results
+rf_res |>
+  collect_metrics() |>
+  print(width = Inf) |>
+  filter(.metric == "roc_auc") |>
+  ggplot(mapping = aes(x = trees, y = mean, color = factor(mtry))) +
+  geom_point() + 
+  # geom_line() + 
+  labs(x = "Num. of Trees", y = "CV AUC")
+```
+
+```{r}
+# the top 5 models
+rf_res |>
+  show_best("roc_auc")
+```
+
+```{r}
+# the best model
+best_rf <- rf_res |>
+  select_best("roc_auc")
+best_rf
+```
+
+```{r}
+# final workflow
+final_rf <- rf_wf |>
+  finalize_workflow(best_rf)
+final_rf
+```
+
+### 3.3 Boosting
+
+```{r}
+# set up the boosting model
+gb_mod <- 
+  boost_tree(
+    mode = "classification",
+    trees = 1000, 
+    tree_depth = tune(),
+    learn_rate = tune()
+  ) |> 
+  set_engine("xgboost")
+gb_mod
+```
+
+```{r}
+# bundle the recipe (R) and model into workflow.
+gb_wf <- workflow() |>
+  add_recipe(icu_recipe) |>
+  add_model(gb_mod)
+gb_wf
+```
+
+```{r}
+# tune the tree depth and learning rate
+gb_grid <- grid_regular(
+  tree_depth(range = c(1L, 5L)),
+  learn_rate(range = c(-4, 1), trans = log10_trans()),
+  levels = c(3, 10)
+  )
+
+# fit CV
+if (file.exists("gb_res.rds")) {
+  gb_res <- read_rds("gb_res.rds")
+} else {
+  gb_res <- tune_grid(
+    object = gb_wf,
+    resamples = folds,
+    grid = gb_grid,
+    control = control_stack_grid()
+    )
+  write_rds(gb_res, "gb_res.rds")
+}
+gb_res
+```
+
+```{r}
+# visualize the CV results
+gb_res |>
+  collect_metrics() |>
+  print(width = Inf) |>
+  filter(.metric == "roc_auc") |>
+  ggplot(mapping = aes(x = learn_rate, y = mean, color = factor(tree_depth))) +
+  geom_point() +
+  labs(x = "Learning Rate", y = "CV AUC") +
+  scale_x_log10()
+```
+
+```{r}
+# the top 5 models
+gb_res |>
+  show_best("roc_auc")
+```
+
+```{r}
+# the best model
+best_gb <- gb_res |>
+  select_best("roc_auc")
+best_gb
+```
+
+```{r}
+# final workflow
+final_gb <- gb_wf |>
+  finalize_workflow(best_gb)
+final_gb
+```
+### 3.4 Model stacking
+
+```{r}
+# build the stacked ensemble
+if (file.exists("icu_model_st.rds")) {
+  icu_model_st <- read_rds("icu_model_st.rds")
+} else {
+  icu_model_st <- 
+    # initialize the stack
+    stacks() |>
+    # add candidate members
+    add_candidates(logit_res) |>
+    add_candidates(rf_res) |>
+    add_candidates(gb_res) |>
+    # determine how to combine their predictions
+    blend_predictions(
+      penalty = 10^(-6:2),
+      metrics = c("roc_auc")
+      ) |>
+    # fit the candidates with nonzero stacking coefficients
+    fit_members()
+  write_rds(icu_model_st, "icu_model_st.rds")
+}
+```
+
+```{r}
+icu_model_st
+```
+
+```{r}
+# plot the results
+autoplot(icu_model_st)
+```
+
+```{r}
+# show the relationship more directly
+autoplot(icu_model_st, type = "members")
+```
+
+```{r}
+# see the top results
+autoplot(icu_model_st, type = "weights")
+```
+
+## 4. Compare model classification performance on the test set
+
+Report both the area under ROC curve and accuracy for each machine learning algorithm and the model stacking. Interpret the results. What are the most important features in predicting long ICU stays? How do the models compare in terms of performance and interpretability?
+
+### 4.1 AUC and accuracy of each model
+#### 4.1.1 Logistic regression with enet regularization
+
+I fit the whole training set and predict the test cases based on logistic regression. Then I compute the test metrics as follows.
+
+- The AUC of the logistic regression model is 0.600. This means that there is a 60% chance that the model will be able to distinguish between a randomly chosen positive instance and a randomly chosen negative instance. 
+
+- The accuracy is 0.573, which means that 57.3% of the logistic regression model's predictions are correct.
+
+```{r}
+# Fit the whole training set, then predict the test cases based on logit
+logit_fit <- 
+  final_logit |>
+  last_fit(data_split)
+
+# Test metrics
+logit_fit |> 
+  collect_metrics()
+```
+
+#### 4.1.2 Random forest
+
+I fit the whole training set and predict the test cases based on random forest. Then I compute the test metrics as follows.
+
+- The AUC of the random forest model is 0.620. This means that there is a 62% chance that the model will be able to distinguish between a randomly chosen positive instance and a randomly chosen negative instance.
+
+- The accuracy is 0.586, which means that 58.6% of the random forest model's predictions are correct.
+
+```{r}
+# Fit the whole training set, then predict the test cases based on RF
+rf_fit <- 
+  final_rf |>
+  last_fit(data_split)
+
+# Test metrics
+rf_fit |> 
+  collect_metrics()
+```
+
+#### 4.1.3 Boosting
+
+I fit the whole training set and predict the test cases based on boosting. Then I compute the test metrics as follows. 
+
+- The AUC of the boosting model is 0.617. This means that there is a 61.7% chance that the model will be able to distinguish between a randomly chosen positive instance and a randomly chosen negative instance.
+
+- The accuracy is 0.583, which means that 58.3% of the boosting model's predictions are correct.
+
+```{r}
+# Fit the whole training set, then predict the test cases based on GB
+gb_fit <- 
+  final_gb |>
+  last_fit(data_split)
+
+# Test metrics
+gb_fit |> 
+  collect_metrics()
+```
+
+#### 4.1.4 Model stacking
+
+I predict the test cases based on model stacking by probability and by class respectively. Then I compute the AUC and accuracy as follows. 
+
+- The AUC of the stacking model is 0.622. This means that there is a 62.2% chance that the model will be able to distinguish between a randomly chosen positive instance and a randomly chosen negative instance.
+
+- The accuracy is 0.586, which means that 58.6% of the stacking model's predictions are correct.
+
+```{r}
+# predict the test set by probability
+icu_test_pred_st <- 
+  icu_model_st |>
+  predict(test_set, type = "prob") |>
+  bind_cols(test_set) |>
+  print()
+```
+
+```{r}
+# compute the AUC
+st_auc <- roc_auc(icu_test_pred_st, truth = los_long, .pred_FALSE)
+st_auc
+```
+
+```{r}
+# predict the test set by class
+icu_pred_class <-
+  test_set |>
+  select(los_long) |>
+  bind_cols(
+    predict(
+      icu_model_st,
+      test_set,
+      type = "class",
+      members = TRUE
+      )
+    ) |>
+  print()
+```
+
+```{r}
+# compute the accuracy
+accuracy <- map(
+  colnames(icu_pred_class),
+  ~mean(icu_pred_class$los_long == pull(icu_pred_class, .x))
+  ) |>
+  set_names(colnames(icu_pred_class)) |>
+  as_tibble() |>
+  pivot_longer(c(everything(), -los_long), 
+               names_to = "model", 
+               values_to = "accuracy") |>
+  # sort the accuracy
+  arrange(desc(accuracy)) |>
+  print()
+```
+```{r}
+# save the accuracy of stacking model
+st_accuracy <- accuracy$accuracy[1]
+st_accu <- data.frame(
+  .metric = "accuracy",
+  .estimator = "binary",
+  .estimate = st_accuracy
+)
+```
+
+### 4.2 Feature importance
+
+Here I plot the feature importance of the random forest and boosting models as follows. From the 2 plots, we can see that the most important features in predicting long ICU stays are `age_intime`, `Heart_Rate`, `Non_Invasive_Blood_Pressure_systolic`, `White_Blood_Cells`, `Glucose`, and `Hematocrit`. Among these features, `age_intime` is the patient's age at ICU intime, `Heart_Rate` and `Non_Invasive_Blood_Pressure_systolic` are the first vital measurements during ICU stay, and `White_Blood_Cells`, `Glucose` and `Hematocrit` are the last lab measurements before the ICU stay. 
+
+```{r}
+# feature importance of RF
+fitted_wf <- rf_fit$.workflow[[1]]
+fitted_model <- extract_fit_engine(fitted_wf)
+importance <- fitted_model$variable.importance
+importance_rf <- data.frame(
+  Feature = names(importance),
+  Importance = importance,
+  stringsAsFactors = FALSE
+)
+importance_rf <- 
+  importance_rf[order(importance_rf$Importance, decreasing = TRUE), ]
+
+# plot the feature importance
+p <- ggplot(importance_rf, 
+            aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_col() +
+  coord_flip() +
+  geom_text(aes(label = round(Importance, 2)), hjust = -0.1) +
+  labs(x = "Features", y = "Importance") +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_line(color = "gray", linewidth = 0.2),
+        panel.border = element_rect(fill = NA, linewidth = 0.5), 
+        # increase the font size
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 15)
+        )
+
+ggsave("feature_importance_rf.png", p, width = 18, height = 8)
+```
+
+![Feature Importance of RF](feature_importance_rf.png)
+
+```{r}
+# feature importance of GB
+fitted_gbwf <- gb_fit$.workflow[[1]]
+fitted_gbmodel <- extract_fit_engine(fitted_gbwf)
+importance_gb <- xgb.importance(model = fitted_gbmodel)
+
+p <- ggplot(importance_gb, aes(x = reorder(Feature, Gain), y = Gain)) +
+  geom_col() +
+  coord_flip() +
+  geom_text(aes(label = round(Gain, 2)), hjust = -0.1) +
+  labs(x = "Features", y = "Gain") +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_line(color = "gray", linewidth = 0.2),
+        panel.border = element_rect(fill = NA, linewidth = 0.5),
+        # increase the font size
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 15))
+
+ggsave("feature_importance_gb.png", p, width = 18, height = 8)
+```
+
+![Feature Importance of XGB](feature_importance_gb.png)
+
+### 4.3 Model comparison in terms of performance and interpretability
+
+#### 4.3.1 Performance (stacking > RF > XGB > logit)
+
+From the performance table and ROC curves below, we can see that 
+
+- Model Stacking shows the best performance in terms of both accuracy and ROC AUC, slightly outperforming the other models. This indicates that combining the predictions of multiple models can lead to a slight improvement in predictive performance. 
+
+- Random Forest and Boosting models perform similarly and better than logistic regression, suggesting that tree-based methods may capture complex patterns in the data more effectively. 
+
+- Logistic Regression shows the lowest performance among the models in both metrics, which might be due to its linear nature being less capable of handling complex relationships in the data.
+
+```{r}
+# compare the models in terms of performance
+library(broom)
+metrics_list <- list(
+  logit = logit_fit %>% collect_metrics(),
+  rf = rf_fit %>% collect_metrics(),
+  boosting = gb_fit %>% collect_metrics(),
+  stacking = st_accu, 
+  stacking = st_auc
+)
+
+# tabulate the accuracy and roc_auc results
+bind_rows(metrics_list, .id = "model") |>
+  filter(.metric == "accuracy" | .metric == "roc_auc") |>
+  select(-.estimator, -.config) |>
+  pivot_wider(names_from = .metric, values_from = .estimate) |>
+  print()
+```
+
+```{r}
+# plot the ROC curves
+library(yardstick)
+logit_preds <- logit_fit |> collect_predictions()
+rf_preds <- rf_fit |> collect_predictions()
+gb_preds <- gb_fit |> collect_predictions()
+logic_roc <- logit_preds |> roc_curve(los_long, .pred_FALSE)
+rf_roc <- rf_preds |> roc_curve(los_long, .pred_FALSE)
+gb_roc <- gb_preds |> roc_curve(los_long, .pred_FALSE)
+st_roc <- icu_test_pred_st |> roc_curve(los_long, .pred_FALSE)
+roc_curve <- bind_rows(
+  logic_roc %>% mutate(model = "logit"),
+  rf_roc %>% mutate(model = "rf"), 
+  gb_roc %>% mutate(model = "XGB"), 
+  st_roc %>% mutate(model = "stacking"))
+roc_curve |> ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  labs(title = "ROC Curves of Different Models",
+       x = "False Positive Rate",
+       y = "True Positive Rate") +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid = element_line(color = "gray", linewidth = 0.2),
+        panel.border = element_rect(fill = NA, linewidth = 0.5))
+```
+
+#### 4.3.2 Interpretability (logit > rf > XGB > stacking)
+- Logistic Regression with ENet Regularization: High. Logistic regression models provide coefficients for each feature, making it straightforward to understand the impact of each feature on the prediction. Elastic Net regularization, which combines L1 and L2 penalties, can further enhance interpretability by promoting sparsity and reducing the influence of less important features.
+
+- Random Forest: Moderate. While random forests offer insights into feature importance, indicating which features are most influential in making predictions, the ensemble nature of the model (comprising many decision trees) makes it harder to trace the exact decision path for specific predictions.
+
+- Boosting Models: Moderate to Low. Similar to random forests, boosting models can provide measures of feature importance. However, the sequential correction of errors in boosting adds complexity, making the exact reasoning behind predictions less transparent than simpler models.
+
+- Model Stacking: Low. Stacking involves combining the predictions from multiple models, which inherently reduces interpretability. Understanding how individual predictions contribute to the final decision can be challenging, as it depends on the interplay between different base models and possibly a meta-model.
+
+#### 4.3.3 Conclusions on model comparison
+In summary, the choice of model should consider the trade-off between performance and interpretability. Logistic regression offers high interpretability but lower performance, while random forests and boosting models provide a good balance between the two. Model stacking, while showing a slight performance advantage, sacrifices interpretability due to its complex nature. Therefore, the choice of model should be based on the specific needs of the application, considering the importance of interpretability, the complexity of the data, and the desired level of predictive performance.
+
+## 5. Conclusions
+In this homework, I developed machine learning approaches to predict whether a patient's ICU stay will be longer than 2 days using the MIMIC-IV ICU cohort. First, I preprocessed the data by imputing missing values/outliers and correcting data types. Then, I partitioned the data into 50% training set and 50% test set, and trained and tuned logistic regression with enet regularization, random forest, boosting models, plus a model stacking approach. At last, I compared the classification performance of the models on the test set, identified the most important features in predicting long ICU stays, and evaluated the models in terms of performance and interpretability. The results showed that model stacking slightly outperformed the other models in terms of accuracy and ROC AUC, while logistic regression provided the highest interpretability. `age_intime`, `Heart_Rate`, `Non_Invasive_Blood_Pressure_systolic`, `White_Blood_Cells`, `Glucose`, and `Hematocrit` were identified as the most important features by RF and Boosting models in predicting long ICU stays.
+
+
+
